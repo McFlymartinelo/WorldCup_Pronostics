@@ -75,6 +75,7 @@ const API = (() => {
 
     // Classement
     getStandings:   ()          => req('GET', '/standings', null, { poolScoped: true }),
+    getAdvancedStats: ()        => req('GET', '/stats/advanced', null, { poolScoped: true }),
 
     // Admin
     getUsers:       ()                  => req('GET',    '/admin/users'),

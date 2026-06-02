@@ -19,6 +19,7 @@ app.use('/api/pools',           require('./routes/pools'));
 app.use('/api/matches',         require('./routes/matches'));
 app.use('/api/predictions',     require('./routes/predictions'));
 app.use('/api/standings',       require('./routes/standings'));
+app.use('/api/stats',           require('./routes/stats'));
 app.use('/api/admin',           require('./routes/admin'));
 app.use('/api/teams',           require('./routes/teams'));
 app.use('/api/squads',          require('./routes/squads'));

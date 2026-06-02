@@ -173,6 +173,35 @@ select.pick-select option {
 }
 .chat-input:focus { border-color: #3b82f6; }
 
+.chart-wrap {
+  position: relative;
+  height: 220px;
+  margin-bottom: 8px;
+}
+.chart-wrap.tall { height: 260px; }
+.stats-tab {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 8px;
+  border: 1px solid #1e2535;
+  color: #64748b;
+  background: none;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.stats-tab.active {
+  background: #1e2d4a;
+  color: #3b82f6;
+  border-color: #2d4a7a;
+}
+.stat-card {
+  background: #161b27;
+  border: 1px solid #1e2535;
+  border-radius: 12px;
+  padding: 12px;
+}
+
 /* ── Badges statut match ─────────────────────────────────────── */
 .badge-open   { background: #0f2417; color: #22c55e; }
 .badge-locked { background: #1e1e35; color: #818cf8; }

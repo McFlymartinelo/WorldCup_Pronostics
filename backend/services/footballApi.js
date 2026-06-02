@@ -177,4 +177,4 @@ async function log (jobType, status, message) {
   );
 }
 
-module.exports = { syncFixtures, syncScores };
+module.exports = { syncFixtures, syncScores, computePoints };
