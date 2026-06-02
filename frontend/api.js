@@ -47,6 +47,24 @@ const API = (() => {
     joinPool:       (invite_code)      => req('POST', '/pools/join', { invite_code }),
     getPool:        (id)               => req('GET',  `/pools/${id}`),
 
+    // Chat (par groupe)
+    getChatMessages: (after = 0) => {
+      const poolId = getPoolId();
+      if (!poolId) throw new Error('Aucun groupe sélectionné');
+      const q = after ? `?after=${after}` : '';
+      return req('GET', `/pools/${poolId}/chat${q}`);
+    },
+    sendChatMessage: (content) => {
+      const poolId = getPoolId();
+      if (!poolId) throw new Error('Aucun groupe sélectionné');
+      return req('POST', `/pools/${poolId}/chat`, { content });
+    },
+    toggleChatReaction: (messageId, emoji) => {
+      const poolId = getPoolId();
+      if (!poolId) throw new Error('Aucun groupe sélectionné');
+      return req('POST', `/pools/${poolId}/chat/${messageId}/reactions`, { emoji });
+    },
+
     // Matchs
     getMatches:     ()          => req('GET', '/matches', null, { poolScoped: true }),
     getMatch:       (id)        => req('GET', `/matches/${id}`, null, { poolScoped: true }),

@@ -126,6 +126,9 @@ async function migrateToPools () {
 
   try { await run('ALTER TABLE pools ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0'); } catch { /* existe */ }
   await run('UPDATE pools SET is_public = 1 WHERE invite_code = ?', [GENERAL_CODE]);
+
+  const { migrateChatTables } = require('./chatService');
+  await migrateChatTables();
 }
 
 async function addUserToPool (userId, poolId) {

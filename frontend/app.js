@@ -8,6 +8,10 @@ let state = {
   standings: [],
   pools: [],
   currentPool: null,
+  chatMessages: [],
+  chatEmojis: [],
+  chatLastId: 0,
+  chatPollTimer: null,
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -15,6 +19,8 @@ let state = {
 ═══════════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', async () => {
   initAuthUI();
+  initNotifDeepLink();
+
   const token = localStorage.getItem('token');
   if (token) {
     try {
@@ -145,6 +151,7 @@ async function showApp() {
 
   // Déconnexion
   document.getElementById('btn-logout').addEventListener('click', () => {
+    stopChatPoll();
     localStorage.removeItem('token');
     state.user = null;
     showLogin();
@@ -198,6 +205,48 @@ async function showApp() {
   }
 
   navigateTo('matches');
+  await applyPendingNotifNavigation();
+}
+
+function getNotifDeepLink () {
+  const params = new URLSearchParams(location.search);
+  const view = params.get('view');
+  const poolId = parseInt(params.get('pool'), 10);
+  if (view === 'chat' && Number.isInteger(poolId)) {
+    history.replaceState({}, '', location.pathname);
+    return { view: 'chat', poolId };
+  }
+  return null;
+}
+
+function initNotifDeepLink () {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', async (e) => {
+      if (e.data?.type === 'navigate-chat' && state.user) {
+        await openChatFromNotif(e.data.poolId);
+      }
+    });
+  }
+  window.pendingNotifLink = getNotifDeepLink();
+}
+
+async function openChatFromNotif (poolId) {
+  if (!poolId) {
+    navigateTo('chat');
+    return;
+  }
+  if (!state.pools.length) await loadPools();
+  const pool = state.pools.find(p => p.id === poolId);
+  if (pool) await selectPool(poolId);
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.nav-btn[data-view="chat"]')?.classList.add('active');
+  navigateTo('chat');
+}
+
+async function applyPendingNotifNavigation () {
+  const link = window.pendingNotifLink;
+  window.pendingNotifLink = null;
+  if (link?.view === 'chat') await openChatFromNotif(link.poolId);
 }
 
 async function loadPools () {
@@ -330,6 +379,19 @@ function refreshCurrentView () {
   else if (state.currentView === 'detail') navigateTo('matches');
   else if (state.currentView === 'standings') renderStandings();
   else if (state.currentView === 'profile') renderProfile();
+  else if (state.currentView === 'chat') renderChat(true);
+}
+
+function stopChatPoll () {
+  if (state.chatPollTimer) {
+    clearInterval(state.chatPollTimer);
+    state.chatPollTimer = null;
+  }
+}
+
+function startChatPoll () {
+  stopChatPoll();
+  state.chatPollTimer = setInterval(() => pollChatMessages(), 4000);
 }
 
 async function initNotifications(btn) {
@@ -730,7 +792,9 @@ function urlBase64ToUint8Array(base64String) {
    Routeur
 ═══════════════════════════════════════════════════════════════ */
 function navigateTo(view, params = {}) {
-  ['matches', 'detail', 'standings', 'admin', 'tournament', 'profile'].forEach(v => {
+  if (view !== 'chat') stopChatPoll();
+
+  ['matches', 'detail', 'standings', 'admin', 'tournament', 'profile', 'chat'].forEach(v => {
     document.getElementById(`view-${v}`)?.classList.add('hidden');
   });
   document.getElementById(`view-${view}`).classList.remove('hidden');
@@ -742,6 +806,179 @@ function navigateTo(view, params = {}) {
   if (view === 'tournament') renderTournament();
   if (view === 'admin') renderAdmin();
   if (view === 'profile') renderProfile();
+  if (view === 'chat') renderChat(true);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Vue : Chat (par groupe)
+═══════════════════════════════════════════════════════════════ */
+function formatChatTime (iso) {
+  if (!iso) return '';
+  const d = new Date(String(iso).replace(' ', 'T'));
+  if (Number.isNaN(d.getTime())) return '';
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  return d.toLocaleString('fr-FR', sameDay
+    ? { hour: '2-digit', minute: '2-digit' }
+    : { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+function chatMessageHtml (msg) {
+  const emojis = state.chatEmojis.length ? state.chatEmojis : ['👍', '🔥', '😂', '🎯', '💪', '😱', '❤️', '🏆'];
+  const reacted = new Set((msg.reactions || []).map(r => r.emoji));
+
+  return `
+    <div class="chat-msg" data-msg-id="${msg.id}">
+      <div class="chat-meta ${msg.mine ? 'mine' : ''}">
+        ${msg.mine ? `<span>${formatChatTime(msg.created_at)}</span>` : `
+          <span class="w-5 h-5 rounded-full inline-flex items-center justify-center text-xs"
+                style="background:${msg.color}22;border:1px solid ${msg.color}">${msg.avatar}</span>
+          <span class="text-slate-400">${escHtml(msg.pseudo)}</span>
+          <span>${formatChatTime(msg.created_at)}</span>`}
+      </div>
+      <div class="chat-bubble ${msg.mine ? 'mine' : 'theirs'}">${escHtml(msg.content)}</div>
+      <div class="chat-reactions">
+        ${(msg.reactions || []).map(r => `
+          <button type="button" class="chat-react-pill ${r.mine ? 'mine' : ''}"
+                  data-msg-id="${msg.id}" data-emoji="${r.emoji}"
+                  title="${escHtml(r.users.join(', '))}">
+            ${r.emoji} ${r.count}
+          </button>`).join('')}
+        ${emojis.filter(e => !reacted.has(e)).map(e => `
+          <button type="button" class="chat-react-add" data-msg-id="${msg.id}" data-emoji="${e}"
+                  title="Réagir">${e}</button>`).join('')}
+      </div>
+    </div>`;
+}
+
+function bindChatInteractions (root) {
+  root.querySelectorAll('.chat-react-pill, .chat-react-add').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const messageId = +btn.dataset.msgId;
+      const emoji = btn.dataset.emoji;
+      try {
+        await API.toggleChatReaction(messageId, emoji);
+        await pollChatMessages(true);
+      } catch (e) {
+        console.warn('reaction:', e.message);
+      }
+    });
+  });
+}
+
+function scrollChatToBottom () {
+  const box = document.getElementById('chat-messages');
+  if (box) box.scrollTop = box.scrollHeight;
+}
+
+async function pollChatMessages (fullRefresh = false) {
+  if (state.currentView !== 'chat') return;
+  try {
+    const data = await API.getChatMessages(0);
+    if (data.emojis?.length) state.chatEmojis = data.emojis;
+
+    const incoming = data.messages || [];
+    state.chatMessages = incoming;
+    state.chatLastId = incoming.length
+      ? Math.max(...incoming.map(m => m.id))
+      : 0;
+
+    const list = document.getElementById('chat-messages');
+    if (!list) return;
+
+    const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+
+    list.innerHTML = incoming.length
+      ? incoming.map(chatMessageHtml).join('')
+      : '<p class="text-xs text-muted text-center py-8">Aucun message — lancez la conversation !</p>';
+    bindChatInteractions(list);
+
+    if (fullRefresh || atBottom) scrollChatToBottom();
+  } catch (e) {
+    const err = document.getElementById('chat-error');
+    if (err) {
+      err.textContent = e.message;
+      err.classList.remove('hidden');
+    }
+  }
+}
+
+async function renderChat (reset = false) {
+  const el = document.getElementById('view-chat');
+  if (!el) return;
+
+  if (!state.currentPool) {
+    el.innerHTML = '<p class="text-muted text-sm text-center p-8">Sélectionnez un groupe pour accéder au chat.</p>';
+    stopChatPoll();
+    return;
+  }
+
+  if (reset) {
+    state.chatMessages = [];
+    state.chatLastId = 0;
+  }
+
+  el.innerHTML = `
+    <div class="px-4 py-3 border-b border-border bg-surface shrink-0">
+      <p class="text-xs font-semibold text-muted uppercase tracking-wider">Chat du groupe</p>
+      <p class="text-sm text-white truncate">${escHtml(state.currentPool.name)}</p>
+      <p id="chat-error" class="text-xs text-red-400 mt-1 hidden"></p>
+    </div>
+    <div id="chat-messages" class="chat-messages">
+      <p class="text-xs text-muted text-center py-8">Chargement…</p>
+    </div>
+    <div class="chat-compose">
+      <textarea id="chat-input" class="chat-input" rows="1" maxlength="500"
+                placeholder="Écrire un message…"></textarea>
+      <button id="btn-chat-send" type="button"
+              class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm shrink-0">
+        Envoyer
+      </button>
+    </div>`;
+
+  const input = document.getElementById('chat-input');
+  const btnSend = document.getElementById('btn-chat-send');
+
+  async function sendMessage () {
+    const text = input.value.trim();
+    if (!text) return;
+    btnSend.disabled = true;
+    try {
+      const msg = await API.sendChatMessage(text);
+      input.value = '';
+      document.getElementById('chat-error')?.classList.add('hidden');
+      if (msg) {
+        state.chatMessages.push(msg);
+        state.chatLastId = Math.max(state.chatLastId, msg.id);
+        const list = document.getElementById('chat-messages');
+        const empty = list?.querySelector('.text-muted.text-center');
+        if (empty) empty.remove();
+        list?.insertAdjacentHTML('beforeend', chatMessageHtml(msg));
+        bindChatInteractions(list);
+        scrollChatToBottom();
+      }
+    } catch (e) {
+      const err = document.getElementById('chat-error');
+      if (err) {
+        err.textContent = e.message;
+        err.classList.remove('hidden');
+      }
+    } finally {
+      btnSend.disabled = false;
+      input.focus();
+    }
+  }
+
+  btnSend?.addEventListener('click', sendMessage);
+  input?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  await pollChatMessages(true);
+  startChatPoll();
 }
 
 /* ═══════════════════════════════════════════════════════════════
