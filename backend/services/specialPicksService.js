@@ -1,7 +1,9 @@
 'use strict';
 const { run, get, all, exec } = require('../database/db');
 
-const POINTS_PER_CORRECT = 2;
+const POINTS_PER_CORRECT = 1;
+
+const STARTED_STATUSES = ['LIVE', 'IN_PLAY', 'PAUSED', 'FINISHED', 'ET', 'PEN', 'AWARDED'];
 
 async function migrateSpecialPicks () {
   try {
@@ -38,8 +40,25 @@ function parsePicks (raw) {
   }
 }
 
-function groupKey (groupName) {
-  return `${groupName}_2ND`;
+function groupKey (groupName, position = 2) {
+  return position === 1 ? `${groupName}_1ST` : `${groupName}_2ND`;
+}
+
+async function isGroupPicksLocked (groupName) {
+  const row = await get(`
+    SELECT 1 FROM matches
+    WHERE group_name = ?
+      AND status IN (${STARTED_STATUSES.map(() => '?').join(', ')})
+    LIMIT 1
+  `, [groupName, ...STARTED_STATUSES]);
+  return !!row;
+}
+
+async function getGroupLocks () {
+  const groups = await getGroupList();
+  const locks = {};
+  for (const g of groups) locks[g] = await isGroupPicksLocked(g);
+  return locks;
 }
 
 async function getGroupList () {
@@ -76,9 +95,11 @@ async function updateMemberSpecialPicks (userId, poolId, picks) {
   const groups = await getGroupList();
   const cleaned = {};
   for (const g of groups) {
-    const key = groupKey(g);
-    if (picks[key] !== undefined && picks[key] !== null && picks[key] !== '') {
-      cleaned[key] = picks[key];
+    for (const pos of [1, 2]) {
+      const key = groupKey(g, pos);
+      if (picks[key] !== undefined && picks[key] !== null && picks[key] !== '') {
+        cleaned[key] = picks[key];
+      }
     }
   }
   await run(
@@ -104,13 +125,13 @@ async function setGroupResult (groupName, position, teamName) {
 
 async function computeSpecialBonus (userId, poolId) {
   const picks = await getMemberSpecialPicks(userId, poolId);
-  const seconds = await all(
-    'SELECT group_name, team_name FROM group_stage_results WHERE position = 2 AND team_name IS NOT NULL',
+  const results = await all(
+    'SELECT group_name, position, team_name FROM group_stage_results WHERE team_name IS NOT NULL',
   );
   let pts = 0;
   let correct = 0;
-  for (const r of seconds) {
-    if (picks[groupKey(r.group_name)] === r.team_name) {
+  for (const r of results) {
+    if (picks[groupKey(r.group_name, r.position)] === r.team_name) {
       pts += POINTS_PER_CORRECT;
       correct += 1;
     }
@@ -127,6 +148,8 @@ module.exports = {
   getGroupResults,
   setGroupResult,
   computeSpecialBonus,
+  isGroupPicksLocked,
+  getGroupLocks,
   groupKey,
   POINTS_PER_CORRECT,
 };

@@ -151,6 +151,7 @@ function urlBase64ToUint8Array (base64String) {
 
 function ptsCls (pts) {
   if (pts === 3) return 'pts-3';
+  if (pts === 2) return 'pts-2';
   if (pts === 1) return 'pts-1';
   return 'pts-0';
 }

@@ -22,72 +22,17 @@ async function renderAdmin () {
   const el = document.getElementById('view-admin');
   el.innerHTML = `<p class="text-muted text-sm text-center py-8">Chargement…</p>`;
 
-  let users = []; let logs = []; let comp = { teams: [], scorers: [], winner_team: null, top_scorer: null };
+  let users = []; let logs = [];
   let groupData = { groups: [], results: [], options: {} };
   try {
-    [users, logs, comp, groupData] = await Promise.all([
+    [users, logs, groupData] = await Promise.all([
       API.getUsers(),
       API.getSyncLog(),
-      API.getCompetitionResults(),
       API.getGroupResults().catch(() => ({ groups: [], results: [], options: {} })),
     ]);
   } catch (e) { el.innerHTML = `<p class="text-red-400 text-sm">${e.message}</p>`; return; }
 
   el.innerHTML = `
-    <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Résultats tournoi (bonus)</p>
-    <div class="bg-surface border border-border rounded-xl p-4 mb-4">
-      <p class="text-xs text-muted mb-3">Définir le champion et le meilleur buteur pour attribuer +5 / +3 pts aux joueurs.</p>
-      <label class="block text-xs text-muted mb-1">Vainqueur</label>
-      <select id="admin-winner" class="input-field w-full mb-3 text-sm">
-        <option value="">— Non défini —</option>
-        ${(comp.teams || []).map(t => `
-          <option value="${attrEsc(t)}" ${t === (comp.winner_team || '') ? 'selected' : ''}>${escHtml(t)}</option>
-        `).join('')}
-      </select>
-      <label class="block text-xs text-muted mb-1">Meilleur buteur</label>
-      <input id="admin-top-scorer" type="text" list="admin-scorers-list" class="input-field w-full text-sm mb-3"
-             value="${attrEsc(comp.top_scorer || '')}" placeholder="Nom exact du joueur" />
-      <datalist id="admin-scorers-list">
-        ${(comp.scorers || []).map(n => `<option value="${attrEsc(n)}">`).join('')}
-      </datalist>
-      <button id="btn-save-competition" class="w-full text-xs bg-amber-950 border border-amber-800 text-amber-300 py-2 rounded-lg hover:bg-amber-900 transition">
-        Enregistrer les résultats
-      </button>
-    </div>
-
-    <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Résultats phase de groupes (paris spéciaux)</p>
-    <div class="bg-surface border border-border rounded-xl p-4 mb-4">
-      <p class="text-xs text-muted mb-3">Définir les 1res et 2es places par groupe. Seule la 2e place sert au bonus +2 pts des joueurs.</p>
-      ${!(groupData.groups || []).length
-        ? '<p class="text-xs text-muted italic">Aucun groupe — synchronisez le calendrier d\'abord.</p>'
-        : (groupData.groups || []).map(g => {
-          const opts = groupData.options[g] || [];
-          const r1 = (groupData.results || []).find(r => r.group_name === g && r.position === 1);
-          const r2 = (groupData.results || []).find(r => r.group_name === g && r.position === 2);
-          const label = String(g).replace(/^GROUP_/i, 'Groupe ');
-          return `
-            <div class="border-b border-border last:border-0 py-3 first:pt-0 last:pb-0">
-              <p class="text-xs font-semibold text-slate-300 mb-2">${escHtml(label)}</p>
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label class="text-[10px] text-muted block mb-1">1re place</label>
-                  <select class="input-field admin-group-pos text-xs w-full" data-group="${attrEsc(g)}" data-position="1">
-                    <option value="">—</option>
-                    ${opts.map(t => `<option value="${attrEsc(t)}" ${t === (r1?.team_name || '') ? 'selected' : ''}>${escHtml(t)}</option>`).join('')}
-                  </select>
-                </div>
-                <div>
-                  <label class="text-[10px] text-muted block mb-1">2e place (+2 pts)</label>
-                  <select class="input-field admin-group-pos text-xs w-full" data-group="${attrEsc(g)}" data-position="2">
-                    <option value="">—</option>
-                    ${opts.map(t => `<option value="${attrEsc(t)}" ${t === (r2?.team_name || '') ? 'selected' : ''}>${escHtml(t)}</option>`).join('')}
-                  </select>
-                </div>
-              </div>
-            </div>`;
-        }).join('')}
-    </div>
-
     <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Synchronisation API</p>
     <div class="bg-surface border border-border rounded-xl p-4 mb-4">
       <div class="flex gap-3 flex-wrap">
@@ -121,7 +66,7 @@ async function renderAdmin () {
     </div>
 
     <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Joueurs (${users.length})</p>
-    <div class="bg-surface border border-border rounded-xl overflow-hidden mb-6">
+    <div class="bg-surface border border-border rounded-xl overflow-hidden mb-4">
       ${users.map(u => `
         <div class="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0">
           <span class="flex-1 text-sm ${u.role === 'admin' ? 'text-white font-semibold' : 'text-slate-300'}">${u.pseudo}</span>
@@ -133,20 +78,40 @@ async function renderAdmin () {
                        data-user-id="${u.id}">Supprimer</button>`
           : ''}
         </div>`).join('')}
-    </div>`;
+    </div>
 
-  document.getElementById('btn-save-competition').addEventListener('click', async () => {
-    try {
-      await API.setCompetitionResults({
-        winner_team: document.getElementById('admin-winner').value || null,
-        top_scorer: document.getElementById('admin-top-scorer').value.trim() || null,
-      });
-      toast('Résultats enregistrés — classement mis à jour', 'success');
-      if (state.currentView === 'standings') renderStandings();
-    } catch (e) {
-      toast(e.message, 'error');
-    }
-  });
+    <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Résultats phase de groupes (paris spéciaux)</p>
+    <div class="bg-surface border border-border rounded-xl p-4 mb-6">
+      <p class="text-xs text-muted mb-3">Définir les 1res et 2es places par groupe (+1 pt par bonne réponse pour les joueurs).</p>
+      ${!(groupData.groups || []).length
+        ? '<p class="text-xs text-muted italic">Aucun groupe — synchronisez le calendrier d\'abord.</p>'
+        : (groupData.groups || []).map(g => {
+          const opts = groupData.options[g] || [];
+          const r1 = (groupData.results || []).find(r => r.group_name === g && r.position === 1);
+          const r2 = (groupData.results || []).find(r => r.group_name === g && r.position === 2);
+          const label = String(g).replace(/^GROUP_/i, 'Groupe ');
+          return `
+            <div class="border-b border-border last:border-0 py-3 first:pt-0 last:pb-0">
+              <p class="text-xs font-semibold text-slate-300 mb-2">${escHtml(label)}</p>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-[10px] text-muted block mb-1">1re place (+1 pt)</label>
+                  <select class="input-field admin-group-pos text-xs w-full" data-group="${attrEsc(g)}" data-position="1">
+                    <option value="">—</option>
+                    ${opts.map(t => `<option value="${attrEsc(t)}" ${t === (r1?.team_name || '') ? 'selected' : ''}>${escHtml(t)}</option>`).join('')}
+                  </select>
+                </div>
+                <div>
+                  <label class="text-[10px] text-muted block mb-1">2e place (+1 pt)</label>
+                  <select class="input-field admin-group-pos text-xs w-full" data-group="${attrEsc(g)}" data-position="2">
+                    <option value="">—</option>
+                    ${opts.map(t => `<option value="${attrEsc(t)}" ${t === (r2?.team_name || '') ? 'selected' : ''}>${escHtml(t)}</option>`).join('')}
+                  </select>
+                </div>
+              </div>
+            </div>`;
+        }).join('')}
+    </div>`;
 
   el.querySelectorAll('.admin-group-pos').forEach(sel => {
     sel.addEventListener('change', async () => {

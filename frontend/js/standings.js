@@ -37,6 +37,7 @@ function standingsTableHtml (rows, badgesMap = {}) {
       <span class="text-blue-400 font-bold text-sm flex-shrink-0">${u.total_points} pts</span>
       <span class="text-xs text-muted flex-shrink-0 hidden sm:inline">
         <span class="text-green-400">${u.exact_scores}✓</span>
+        <span class="text-lime-400 ml-1">${u.good_diff ?? 0}±</span>
         <span class="text-purple-400 ml-1">${u.good_results}↗</span>
         ${u.bonus_winner ? '<span class="text-amber-400 ml-1" title="Vainqueur">🏆</span>' : ''}
         ${u.bonus_scorer ? '<span class="text-yellow-400" title="Meilleur buteur">⚽</span>' : ''}
@@ -93,14 +94,14 @@ async function openCompareModal (opponentId) {
           <span class="text-2xl">${a.avatar || '⚽'}</span>
           <p class="text-sm font-semibold text-white truncate">${escHtml(a.pseudo)}</p>
           <p class="text-lg font-bold text-blue-400">${a.total_points} pts</p>
-          <p class="text-[10px] text-muted">${a.exact_scores} exact · ${a.good_results} bon</p>
+          <p class="text-[10px] text-muted">${a.exact_scores} exact · ${a.good_diff ?? 0} écart · ${a.good_results} 1N2</p>
           <div class="player-badges mt-1">${badgesInlineHtml(a.badges)}</div>
         </div>
         <div class="compare-player-card ${lead === 'b' ? 'leading' : ''}">
           <span class="text-2xl">${b.avatar || '⚽'}</span>
           <p class="text-sm font-semibold text-white truncate">${escHtml(b.pseudo)}</p>
           <p class="text-lg font-bold text-blue-400">${b.total_points} pts</p>
-          <p class="text-[10px] text-muted">${b.exact_scores} exact · ${b.good_results} bon</p>
+          <p class="text-[10px] text-muted">${b.exact_scores} exact · ${b.good_diff ?? 0} écart · ${b.good_results} 1N2</p>
           <div class="player-badges mt-1">${badgesInlineHtml(b.badges)}</div>
         </div>
       </div>
@@ -215,10 +216,10 @@ function renderStatsCharts (stats) {
     state.statsCharts.push(new Chart(distCtx, {
       type: 'doughnut',
       data: {
-        labels: ['Scores exacts (3 pts)', 'Bons résultats (1 pt)', 'Ratés (0 pt)'],
+        labels: ['Scores exacts (3 pts)', 'Bon écart (2 pts)', 'Bon vainqueur (1 pt)', 'Ratés (0 pt)'],
         datasets: [{
-          data: [d.exact_scores, d.good_results, d.wrong],
-          backgroundColor: ['#22c55e', '#a855f7', '#475569'],
+          data: [d.exact_scores, d.good_diff ?? 0, d.good_results, d.wrong],
+          backgroundColor: ['#22c55e', '#a3e635', '#a855f7', '#475569'],
           borderWidth: 0,
         }],
       },
@@ -278,9 +279,10 @@ function statsPanelHtml (stats) {
           <p class="text-[10px] text-muted">#${p.current_rank} · ${p.total_points} pts</p>
         </div>
       </div>
-      <div class="grid grid-cols-3 gap-1 text-center text-[10px]">
+      <div class="grid grid-cols-4 gap-1 text-center text-[10px]">
         <div><p class="text-green-400 font-bold">${p.exact_scores}</p><p class="text-muted">Exact</p></div>
-        <div><p class="text-purple-400 font-bold">${p.good_results}</p><p class="text-muted">Bon</p></div>
+        <div><p class="text-lime-400 font-bold">${p.good_diff ?? 0}</p><p class="text-muted">Écart</p></div>
+        <div><p class="text-purple-400 font-bold">${p.good_results}</p><p class="text-muted">1N2</p></div>
         <div><p class="text-slate-500 font-bold">${p.wrong}</p><p class="text-muted">Raté</p></div>
       </div>
       <p class="text-[10px] text-muted mt-2 text-center">
@@ -358,10 +360,11 @@ async function renderStandings () {
         <p class="text-xs text-muted mb-2">Légende</p>
         <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
           <span><span class="text-green-400">✓</span> Score exact (3 pts)</span>
-          <span><span class="text-purple-400">↗</span> Bon résultat (1 pt)</span>
-          <span><span class="text-amber-400">🏆</span> Vainqueur (5 pts)</span>
+          <span><span class="text-lime-400">±</span> Bon écart + vainqueur (2 pts)</span>
+          <span><span class="text-purple-400">↗</span> Bon vainqueur (1 pt)</span>
+          <span><span class="text-amber-400">🏆</span> Vainqueur tournoi (5 pts)</span>
           <span><span class="text-yellow-400">⚽</span> Meilleur buteur (3 pts)</span>
-          <span><span class="text-pink-400">🎲</span> 2e place par groupe (+2 pts)</span>
+          <span><span class="text-pink-400">🎲</span> Place par groupe (+1 pt)</span>
         </div>
         <p class="text-[10px] text-muted mt-2">Cliquez sur un joueur ou ⚔️ pour le comparateur 1v1.</p>
       </div>

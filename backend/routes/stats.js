@@ -27,6 +27,7 @@ async function fetchStandingsRows (poolId) {
       CASE WHEN cm.top_scorer IS NOT NULL AND pm.pick_top_scorer = cm.top_scorer THEN 3 ELSE 0 END AS bonus_scorer,
       COUNT(p.id)                                    AS total_predictions,
       SUM(CASE WHEN p.points = 3 THEN 1 ELSE 0 END) AS exact_scores,
+      SUM(CASE WHEN p.points = 2 THEN 1 ELSE 0 END) AS good_diff,
       SUM(CASE WHEN p.points = 1 THEN 1 ELSE 0 END) AS good_results,
       SUM(CASE WHEN p.points = 0 THEN 1 ELSE 0 END) AS wrong
     FROM pool_members pm

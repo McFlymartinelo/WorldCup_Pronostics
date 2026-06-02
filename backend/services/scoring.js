@@ -6,10 +6,15 @@ function matchResult (home, away) {
   return 'N';
 }
 
-function scorePrediction (predHome, predAway, realHome, realAway) {
-  if (predHome === realHome && predAway === realAway) return 3;
-  if (matchResult(predHome, predAway) === matchResult(realHome, realAway)) return 1;
-  return 0;
+function goalDiff (home, away) {
+  return home - away;
 }
 
-module.exports = { matchResult, scorePrediction };
+function scorePrediction (predHome, predAway, realHome, realAway) {
+  if (predHome === realHome && predAway === realAway) return 3;
+  if (matchResult(predHome, predAway) !== matchResult(realHome, realAway)) return 0;
+  if (goalDiff(predHome, predAway) === goalDiff(realHome, realAway)) return 2;
+  return 1;
+}
+
+module.exports = { matchResult, goalDiff, scorePrediction };

@@ -12,6 +12,7 @@ async function getPlayerSummary (userId, poolId) {
              AS match_and_bonus_pts,
            COALESCE(SUM(p.points), 0) AS match_points,
            SUM(CASE WHEN p.points = 3 THEN 1 ELSE 0 END) AS exact_scores,
+           SUM(CASE WHEN p.points = 2 THEN 1 ELSE 0 END) AS good_diff,
            SUM(CASE WHEN p.points = 1 THEN 1 ELSE 0 END) AS good_results,
            SUM(CASE WHEN p.points = 0 THEN 1 ELSE 0 END) AS wrong,
            COUNT(p.id) AS total_predictions

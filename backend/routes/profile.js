@@ -15,6 +15,8 @@ const {
   getMemberSpecialPicks,
   updateMemberSpecialPicks,
   computeSpecialBonus,
+  getGroupLocks,
+  isGroupPicksLocked,
   groupKey,
 } = require('../services/specialPicksService');
 const { getUserBadges } = require('../services/badgesService');
@@ -41,6 +43,7 @@ async function profilePayload (userId, poolId) {
   const badges = await getUserBadges(poolId, userId);
   const groups = await getGroupList();
   const special_picks = await getMemberSpecialPicks(userId, poolId);
+  const group_locks = await getGroupLocks();
   const group_options = {};
   for (const g of groups) {
     group_options[g] = await getTeamsInGroup(g);
@@ -61,6 +64,7 @@ async function profilePayload (userId, poolId) {
     pick_winner: pickWinner,
     pick_top_scorer: pickTopScorer,
     special_picks,
+    group_locks,
     group_options,
     teams,
     scorers,
@@ -104,10 +108,26 @@ router.patch('/', requireAuth, requirePool, async (req, res) => {
     pick_winner !== undefined || pick_top_scorer !== undefined;
   const wantsSpecialUpdate = special_picks !== undefined;
 
-  if ((wantsPickUpdate || wantsSpecialUpdate) && await isPicksLocked()) {
+  if (wantsPickUpdate && await isPicksLocked()) {
     return res.status(403).json({
       error: 'Les pronostics bonus sont verrouillés (le tournoi a commencé)',
     });
+  }
+
+  if (wantsSpecialUpdate && special_picks && typeof special_picks === 'object') {
+    const existing = await getMemberSpecialPicks(req.user.id, req.poolId);
+    const groups = await getGroupList();
+    for (const g of groups) {
+      if (!await isGroupPicksLocked(g)) continue;
+      for (const pos of [1, 2]) {
+        const key = groupKey(g, pos);
+        if (special_picks[key] !== undefined && special_picks[key] !== existing[key]) {
+          return res.status(403).json({
+            error: `Paris spéciaux verrouillés pour ${g.replace(/^GROUP_/i, 'groupe ')} (match commencé)`,
+          });
+        }
+      }
+    }
   }
 
   if (pick_winner !== undefined && pick_winner !== null && pick_winner !== '') {
@@ -139,25 +159,30 @@ router.patch('/', requireAuth, requirePool, async (req, res) => {
     await run(`UPDATE users SET ${userSets.join(', ')} WHERE id = ?`, userParams);
   }
 
-  if (!await isPicksLocked()) {
+  if (wantsPickUpdate && !await isPicksLocked()) {
     await updateMemberPicks(req.user.id, req.poolId, pick_winner, pick_top_scorer);
-    if (wantsSpecialUpdate && special_picks && typeof special_picks === 'object') {
-      const groups = await getGroupList();
-      const cleaned = {};
-      for (const g of groups) {
-        const key = groupKey(g);
-        const val = special_picks[key];
-        if (val) {
-          const allowed = await getTeamsInGroup(g);
-          if (allowed.includes(val)) cleaned[key] = val;
-        }
-      }
-      await updateMemberSpecialPicks(req.user.id, req.poolId, cleaned);
-    }
-  } else if (wantsPickUpdate || wantsSpecialUpdate) {
+  } else if (wantsPickUpdate) {
     return res.status(403).json({
       error: 'Les pronostics bonus sont verrouillés (le tournoi a commencé)',
     });
+  }
+
+  if (wantsSpecialUpdate && special_picks && typeof special_picks === 'object') {
+    const groups = await getGroupList();
+    const existing = await getMemberSpecialPicks(req.user.id, req.poolId);
+    const merged = { ...existing };
+    for (const g of groups) {
+      if (await isGroupPicksLocked(g)) continue;
+      const allowed = await getTeamsInGroup(g);
+      for (const pos of [1, 2]) {
+        const key = groupKey(g, pos);
+        if (special_picks[key] === undefined) continue;
+        const val = special_picks[key];
+        if (val && allowed.includes(val)) merged[key] = val;
+        else delete merged[key];
+      }
+    }
+    await updateMemberSpecialPicks(req.user.id, req.poolId, merged);
   }
 
   if (!userSets.length && !wantsPickUpdate && !wantsSpecialUpdate) {

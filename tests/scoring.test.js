@@ -9,10 +9,16 @@ describe('scorePrediction', () => {
     assert.equal(scorePrediction(0, 0, 0, 0), 3);
   });
 
-  it('accorde 1 point pour le bon résultat (1N2)', () => {
-    assert.equal(scorePrediction(1, 0, 2, 1), 1);
-    assert.equal(scorePrediction(0, 0, 1, 1), 1);
-    assert.equal(scorePrediction(0, 2, 0, 1), 1);
+  it('accorde 2 points pour le bon vainqueur et le bon écart', () => {
+    assert.equal(scorePrediction(1, 0, 2, 1), 2);
+    assert.equal(scorePrediction(2, 1, 1, 0), 2);
+    assert.equal(scorePrediction(0, 0, 1, 1), 2);
+    assert.equal(scorePrediction(0, 2, 1, 3), 2);
+  });
+
+  it('accorde 1 point pour le bon vainqueur seulement', () => {
+    assert.equal(scorePrediction(1, 0, 3, 1), 1);
+    assert.equal(scorePrediction(2, 0, 1, 0), 1);
   });
 
   it('accorde 0 point si mauvais résultat', () => {

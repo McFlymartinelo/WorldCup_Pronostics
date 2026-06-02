@@ -40,7 +40,7 @@ async function getPoolAdvancedStats (poolId) {
       labels: ['Départ'],
       points_series: [],
       players: [],
-      distribution: { exact_scores: 0, good_results: 0, wrong: 0 },
+      distribution: { exact_scores: 0, good_diff: 0, good_results: 0, wrong: 0 },
       finished_matches: 0,
     };
   }
@@ -111,6 +111,7 @@ async function getPoolAdvancedStats (poolId) {
   const players = members.map(m => {
     const userPreds = preds.filter(p => p.user_id === m.id);
     const exact = userPreds.filter(p => p.points === 3).length;
+    const goodDiff = userPreds.filter(p => p.points === 2).length;
     const good = userPreds.filter(p => p.points === 1).length;
     const wrong = userPreds.filter(p => p.points === 0).length;
     const matchPts = userPreds.reduce((s, p) => s + p.points, 0);
@@ -129,10 +130,11 @@ async function getPoolAdvancedStats (poolId) {
       bonus_winner: gotWinner,
       bonus_scorer: gotScorer,
       exact_scores: exact,
+      good_diff: goodDiff,
       good_results: good,
       wrong,
       predictions_scored: scored,
-      accuracy_pct: scored ? Math.round(((exact + good) / scored) * 100) : 0,
+      accuracy_pct: scored ? Math.round(((exact + goodDiff + good) / scored) * 100) : 0,
       exact_pct: scored ? Math.round((exact / scored) * 100) : 0,
       avg_points: scored ? Math.round((matchPts / scored) * 100) / 100 : 0,
       current_rank: rankSeries[m.id][rankSeries[m.id].length - 1] ?? members.length,
@@ -151,6 +153,7 @@ async function getPoolAdvancedStats (poolId) {
     players,
     distribution: {
       exact_scores: players.reduce((s, p) => s + p.exact_scores, 0),
+      good_diff: players.reduce((s, p) => s + p.good_diff, 0),
       good_results: players.reduce((s, p) => s + p.good_results, 0),
       wrong: players.reduce((s, p) => s + p.wrong, 0),
     },

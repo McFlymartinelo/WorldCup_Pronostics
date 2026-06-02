@@ -4,8 +4,8 @@ function groupDisplayLabel (groupName) {
   return `Groupe ${String(groupName).replace(/^GROUP_/i, '')}`;
 }
 
-function specialPickKey (groupName) {
-  return `${groupName}_2ND`;
+function specialPickKey (groupName, position) {
+  return position === 1 ? `${groupName}_1ST` : `${groupName}_2ND`;
 }
 
 async function renderProfile () {
@@ -28,8 +28,9 @@ async function renderProfile () {
   const scorers = profile.scorers || [];
   const groupOptions = profile.group_options || {};
   const specialPicks = profile.special_picks || {};
-  const groupNames = Object.keys(groupOptions).sort((a, b) => a.localeCompare(b, 'fr'));
   const badges = profile.badges || [];
+  const groupLocks = profile.group_locks || {};
+  const groupNames = Object.keys(groupOptions).sort((a, b) => a.localeCompare(b, 'fr'));
 
   const AVATARS = [
     '⚽', '🏆', '🥅', '🎯', '🔥', '⚡', '💥', '🌟', '👑', '🦁',
@@ -142,22 +143,39 @@ async function renderProfile () {
     ${groupNames.length ? `
     <div class="bg-surface border border-border rounded-xl p-4 mb-4">
       <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-1">Paris spéciaux</p>
-      <p class="text-xs text-muted mb-3">2e place par groupe — +2 pts par bonne réponse (définie par l'admin après la phase de groupes).</p>
-      ${locked ? '<p class="text-amber-400/90 text-xs mb-3">🔒 Verrouillé</p>' : ''}
-      <div class="space-y-3">
+      <p class="text-xs text-muted mb-3">1re et 2e place par groupe — +1 pt par bonne réponse. Verrouillé dès le premier match du groupe.</p>
+      <div class="space-y-4">
         ${groupNames.map(g => {
-          const key = specialPickKey(g);
           const opts = groupOptions[g] || [];
-          const val = specialPicks[key] || '';
+          const groupLocked = !!groupLocks[g];
+          const val1 = specialPicks[specialPickKey(g, 1)] || '';
+          const val2 = specialPicks[specialPickKey(g, 2)] || '';
           return `
-            <div>
-              <label class="block text-xs text-muted mb-1">${groupDisplayLabel(g)} — 2e place</label>
-              <select class="input-field special-pick-select w-full text-sm" data-group="${attrEsc(g)}" ${locked ? 'disabled' : ''}>
-                <option value="">— Choisir —</option>
-                ${opts.map(t => `
-                  <option value="${attrEsc(t)}" ${t === val ? 'selected' : ''}>${escHtml(t)}</option>
-                `).join('')}
-              </select>
+            <div class="border-b border-border last:border-0 pb-3 last:pb-0">
+              <p class="text-xs font-semibold text-slate-300 mb-2 flex items-center gap-2">
+                ${groupDisplayLabel(g)}
+                ${groupLocked ? '<span class="text-amber-400/90 text-[10px] font-normal">🔒 verrouillé</span>' : ''}
+              </p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[10px] text-muted mb-1">1re place (+1 pt)</label>
+                  <select class="input-field special-pick-select w-full text-sm" data-group="${attrEsc(g)}" data-position="1" ${groupLocked ? 'disabled' : ''}>
+                    <option value="">— Choisir —</option>
+                    ${opts.map(t => `
+                      <option value="${attrEsc(t)}" ${t === val1 ? 'selected' : ''}>${escHtml(t)}</option>
+                    `).join('')}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[10px] text-muted mb-1">2e place (+1 pt)</label>
+                  <select class="input-field special-pick-select w-full text-sm" data-group="${attrEsc(g)}" data-position="2" ${groupLocked ? 'disabled' : ''}>
+                    <option value="">— Choisir —</option>
+                    ${opts.map(t => `
+                      <option value="${attrEsc(t)}" ${t === val2 ? 'selected' : ''}>${escHtml(t)}</option>
+                    `).join('')}
+                  </select>
+                </div>
+              </div>
             </div>`;
         }).join('')}
       </div>
@@ -221,12 +239,11 @@ async function renderProfile () {
       const pickScorer = document.getElementById('pick-top-scorer')?.value.trim() || null;
 
       const special_picks = {};
-      if (!locked) {
-        el.querySelectorAll('.special-pick-select').forEach(sel => {
-          const g = sel.dataset.group;
-          if (g && sel.value) special_picks[specialPickKey(g)] = sel.value;
-        });
-      }
+      el.querySelectorAll('.special-pick-select:not([disabled])').forEach(sel => {
+        const g = sel.dataset.group;
+        const pos = parseInt(sel.dataset.position, 10);
+        if (g && pos) special_picks[specialPickKey(g, pos)] = sel.value || null;
+      });
 
       await API.updateProfile({
         avatar: selectedAvatar,
@@ -234,8 +251,8 @@ async function renderProfile () {
         ...(!locked ? {
           pick_winner: pickWinner,
           pick_top_scorer: pickScorer,
-          special_picks,
         } : {}),
+        ...(groupNames.length ? { special_picks } : {}),
       });
       state.user.avatar = selectedAvatar;
       state.user.color = selectedColor;
