@@ -213,23 +213,51 @@ async function showApp() {
 function getNotifDeepLink () {
   const params = new URLSearchParams(location.search);
   const view = params.get('view');
+  history.replaceState({}, '', location.pathname);
+
   const poolId = parseInt(params.get('pool'), 10);
   if (view === 'chat' && Number.isInteger(poolId)) {
-    history.replaceState({}, '', location.pathname);
     return { view: 'chat', poolId };
   }
+
+  const matchId = parseInt(params.get('match'), 10);
+  if (view === 'detail' && Number.isInteger(matchId)) {
+    return { view: 'detail', matchId };
+  }
+
   return null;
 }
 
 function initNotifDeepLink () {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', async (e) => {
-      if (e.data?.type === 'navigate-chat' && state.user) {
+      if (!state.user) return;
+      if (e.data?.type === 'navigate-chat') {
         await openChatFromNotif(e.data.poolId);
+      }
+      if (e.data?.type === 'navigate-match') {
+        await openMatchFromNotif(e.data.matchId);
       }
     });
   }
   window.pendingNotifLink = getNotifDeepLink();
+}
+
+async function openMatchFromNotif (matchId) {
+  if (!matchId) {
+    navigateTo('matches');
+    return;
+  }
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.nav-btn[data-view="matches"]')?.classList.add('active');
+  navigateTo('detail', { matchId });
+}
+
+async function applyPendingNotifNavigation () {
+  const link = window.pendingNotifLink;
+  window.pendingNotifLink = null;
+  if (link?.view === 'chat') await openChatFromNotif(link.poolId);
+  if (link?.view === 'detail') await openMatchFromNotif(link.matchId);
 }
 
 async function openChatFromNotif (poolId) {
@@ -243,12 +271,6 @@ async function openChatFromNotif (poolId) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.querySelector('.nav-btn[data-view="chat"]')?.classList.add('active');
   navigateTo('chat');
-}
-
-async function applyPendingNotifNavigation () {
-  const link = window.pendingNotifLink;
-  window.pendingNotifLink = null;
-  if (link?.view === 'chat') await openChatFromNotif(link.poolId);
 }
 
 async function loadPools () {
@@ -266,6 +288,31 @@ function updatePoolSelectorLabel () {
   btn.textContent = state.currentPool
     ? `👥 ${state.currentPool.name}`
     : 'Aucun groupe';
+}
+
+function showPoolMsg (text, color) {
+  const msg = document.getElementById('pool-msg');
+  if (!msg) return;
+  msg.textContent = text;
+  msg.className = `text-xs text-center ${color === 'green' ? 'text-green-400' : 'text-red-400'}`;
+  msg.classList.remove('hidden');
+  setTimeout(() => msg.classList.add('hidden'), 3000);
+}
+
+async function copyInviteText (code, name) {
+  const text = `Rejoins mon groupe « ${name} » sur Pronostics CdM 2026 !\nCode d'accès : ${code}`;
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
 }
 
 function initPoolUI () {
@@ -324,13 +371,6 @@ function initPoolUI () {
     }
   });
 
-  function showPoolMsg (text, color) {
-    if (!msg) return;
-    msg.textContent = text;
-    msg.className = `text-xs text-center ${color === 'green' ? 'text-green-400' : 'text-red-400'}`;
-    msg.classList.remove('hidden');
-    setTimeout(() => msg.classList.add('hidden'), 3000);
-  }
 }
 
 function renderPoolModal () {
@@ -353,10 +393,33 @@ function renderPoolModal () {
       </div>
       <p class="text-[10px] text-muted mt-0.5">
         ${p.member_count} membre${p.member_count > 1 ? 's' : ''}
-        ${p.role === 'owner' ? ` · Code : <span class="text-slate-300 font-mono">${escHtml(p.invite_code)}</span>` : ''}
       </p>
+      ${p.role === 'owner' ? `
+        <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+          <span class="text-[10px] text-muted">Code :</span>
+          <span class="text-xs font-mono text-slate-200 bg-border px-2 py-0.5 rounded">${escHtml(p.invite_code)}</span>
+          <button type="button"
+                  class="btn-copy-invite text-[10px] font-semibold text-blue-400 hover:text-blue-300 px-2 py-0.5 rounded border border-blue-800/60"
+                  data-code="${escHtml(p.invite_code)}"
+                  data-name="${escHtml(p.name)}">
+            📋 Copier
+          </button>
+        </div>
+      ` : ''}
     </button>
   `).join('');
+
+  list.querySelectorAll('.btn-copy-invite').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try {
+        await copyInviteText(btn.dataset.code, btn.dataset.name);
+        showPoolMsg('Invitation copiée !', 'green');
+      } catch {
+        showPoolMsg('Impossible de copier', 'red');
+      }
+    });
+  });
 
   list.querySelectorAll('.pool-pick').forEach(btn => {
     btn.addEventListener('click', async () => {

@@ -5,8 +5,8 @@ self.addEventListener('push', event => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'Pronostics CdM', {
       body: data.body || '',
-      icon: data.icon || '/icon.png',
-      badge: data.badge || '/badge.png',
+      icon: data.icon || '/icon.svg',
+      badge: data.badge || '/badge.svg',
       vibrate: [200, 100, 200],
       data: data.data || {},
       actions: isChat
@@ -19,13 +19,28 @@ self.addEventListener('push', event => {
   );
 });
 
+function focusClient (clientList, message) {
+  for (const client of clientList) {
+    if (message) client.postMessage(message);
+    return client.focus();
+  }
+  return null;
+}
+
 function openChat (poolId) {
   const url = poolId ? `/?view=chat&pool=${poolId}` : '/?view=chat';
   return clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-    for (const client of clientList) {
-      client.postMessage({ type: 'navigate-chat', poolId });
-      return client.focus();
-    }
+    const focused = focusClient(clientList, { type: 'navigate-chat', poolId });
+    if (focused) return focused;
+    return clients.openWindow(url);
+  });
+}
+
+function openMatch (matchId) {
+  const url = matchId ? `/?view=detail&match=${matchId}` : '/';
+  return clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+    const focused = focusClient(clientList, { type: 'navigate-match', matchId });
+    if (focused) return focused;
     return clients.openWindow(url);
   });
 }
@@ -41,13 +56,15 @@ self.addEventListener('notificationclick', event => {
     return;
   }
 
+  if (data.matchId && (data.type === 'score' || data.type === 'kickoff')) {
+    event.waitUntil(openMatch(data.matchId));
+    return;
+  }
+
   event.waitUntil(
-    clients.matchAll({ type: 'window' }).then(clientList => {
-      if (clientList.length > 0) {
-        clientList[0].focus();
-      } else {
-        clients.openWindow('/');
-      }
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      if (clientList.length > 0) return clientList[0].focus();
+      return clients.openWindow('/');
     }),
   );
 });

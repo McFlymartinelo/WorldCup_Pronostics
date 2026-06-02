@@ -1,6 +1,7 @@
 'use strict';
 const fetch        = require('node-fetch');
 const { run, get, all } = require('../database/db');
+const { scorePrediction } = require('./scoring');
 
 const BASE = process.env.FOOTBALL_API_BASE_URL || 'https://api.football-data.org/v4';
 const KEY  = process.env.FOOTBALL_API_KEY;
@@ -148,26 +149,13 @@ async function computePoints (matchId, realHome, realAway) {
     [matchId]
   );
 
-  const realResult = result(realHome, realAway);
-
   for (const p of predictions) {
-    let pts = 0;
-    if (p.predicted_home === realHome && p.predicted_away === realAway) {
-      pts = 3;
-    } else if (result(p.predicted_home, p.predicted_away) === realResult) {
-      pts = 1;
-    }
+    const pts = scorePrediction(p.predicted_home, p.predicted_away, realHome, realAway);
     await run(
       'UPDATE predictions SET points = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
       [pts, p.id]
     );
   }
-}
-
-function result (home, away) {
-  if (home > away) return '1';
-  if (home < away) return '2';
-  return 'N';
 }
 
 async function log (jobType, status, message) {

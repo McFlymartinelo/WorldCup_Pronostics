@@ -39,8 +39,8 @@ async function sendToAll (title, body, data = {}) {
     await sendPayload(row.user_id, JSON.parse(row.subscription), {
       title,
       body,
-      icon: '/icon.png',
-      badge: '/badge.png',
+      icon: '/icon.svg',
+      badge: '/badge.svg',
       data,
     });
   }
@@ -64,8 +64,8 @@ async function sendToPoolMembers (poolId, excludeUserId, title, body, data = {})
     await sendPayload(row.user_id, JSON.parse(row.subscription), {
       title,
       body,
-      icon: '/icon.png',
-      badge: '/badge.png',
+      icon: '/icon.svg',
+      badge: '/badge.svg',
       data,
     });
   }
@@ -81,7 +81,7 @@ async function sendToUser (userId, title, body, data = {}) {
   if (!row) return;
 
   await sendPayload(userId, JSON.parse(row.subscription), {
-    title, body, icon: '/icon.png', data,
+    title, body, icon: '/icon.svg', data,
   });
 }
 
