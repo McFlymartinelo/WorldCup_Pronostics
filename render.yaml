@@ -1,0 +1,50 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Déploiement : Dashboard Render → New → Blueprint → repo GitHub
+
+services:
+  - type: web
+    name: worldcup-pronostics
+    runtime: node
+    plan: starter
+    region: frankfurt
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+
+    # Disque persistant pour SQLite (obligatoire — sinon données perdues à chaque deploy)
+    disk:
+      name: worldcup-data
+      mountPath: /data
+      sizeGB: 1
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_PATH
+        value: /data/database.sqlite
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_PSEUDO
+        value: admin
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: FOOTBALL_API_BASE_URL
+        value: https://api.football-data.org/v4
+      - key: COMPETITION_CODE
+        value: WC
+      - key: CRON_SCORES_INTERVAL
+        value: "*/5 * * * *"
+      - key: CRON_FIXTURES_INTERVAL
+        value: "0 */6 * * *"
+      # À renseigner manuellement dans le dashboard Render :
+      - key: FOOTBALL_API_KEY
+        sync: false
+      - key: BSD_API_KEY
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_EMAIL
+        sync: false

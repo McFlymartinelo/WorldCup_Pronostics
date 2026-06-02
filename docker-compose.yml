@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: worldcup_pronostics
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # ── Serveur ──────────────────────────────────────
+      NODE_ENV: production
+      PORT: 3000
+
+      # ── Sécurité ─────────────────────────────────────
+      JWT_SECRET: ${JWT_SECRET}           # ex: openssl rand -hex 32
+      ADMIN_PSEUDO: ${ADMIN_PSEUDO}       # ex: admin
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}   # ex: MonSuperMotDePasse!
+
+      # ── API Football (football-data.org) ─────────────
+      FOOTBALL_API_KEY: ${FOOTBALL_API_KEY}
+      FOOTBALL_API_BASE_URL: https://api.football-data.org/v4
+      COMPETITION_CODE: WC               # Code Coupe du Monde FIFA
+
+      # ── Scheduler (cron interne) ─────────────────────
+      CRON_SCORES_INTERVAL: "*/5 * * * *"   # toutes les 5 min
+      CRON_FIXTURES_INTERVAL: "0 */6 * * *" # toutes les 6 h
+
+      # ── Base de données ───────────────────────────────
+      DB_PATH: /data/database.sqlite
+
+    volumes:
+      - db_data:/data          # persistance SQLite entre redémarrages
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  db_data:
+    driver: local

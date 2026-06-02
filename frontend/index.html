@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Pronostics Coupe du Monde</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface:  '#161b27',
+            bg:       '#0f1117',
+            border:   '#1e2535',
+            muted:    '#64748b',
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="bg-bg text-slate-200 min-h-screen">
+
+  <!-- Vue : Login -->
+  <div id="view-login" class="view flex flex-col items-center justify-center min-h-screen px-6">
+    <div class="text-5xl mb-4">🏆</div>
+    <h1 class="text-2xl font-bold text-white mb-1">Pronostics CdM Prout !</h1>
+    <p class="text-sm text-muted mb-8">Connecte-toi pour jouer</p>
+    <div class="w-full max-w-xs">
+      <div class="flex gap-2 mb-5">
+        <button id="tab-login"    class="tab active flex-1">Connexion</button>
+        <button id="tab-register" class="tab flex-1">Inscription</button>
+      </div>
+      <input id="input-pseudo"   type="text"     placeholder="Pseudo"      class="input-field mb-3" autocomplete="username" />
+      <input id="input-password" type="password" placeholder="Mot de passe" class="input-field mb-4" autocomplete="current-password" />
+      <button id="btn-auth" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition">
+        Se connecter
+      </button>
+      <p id="auth-error" class="text-red-400 text-sm text-center mt-3 hidden"></p>
+    </div>
+  </div>
+
+  <!-- App Shell (cachée jusqu'à login) -->
+  <div id="app-shell" class="hidden flex flex-col min-h-screen max-w-lg mx-auto">
+
+    <!-- Topbar -->
+    <header class="bg-surface border-b border-border px-4 py-3 flex items-center justify-between sticky top-0 z-20">
+      <div class="flex items-center gap-2">
+        <span class="text-lg">🏆</span>
+        <span class="font-semibold text-white text-sm">Pronostics CdM Prout !</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="header-pseudo" class="text-xs text-muted bg-border px-3 py-1 rounded-full"></span>
+        <button id="btn-logout" class="text-muted hover:text-white transition" title="Déconnexion">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Contenu principal -->
+    <main class="flex-1 overflow-y-auto pb-20">
+
+      <!-- Vue : Matchs -->
+      <div id="view-matches" class="view p-4"></div>
+
+      <!-- Vue : Détail match -->
+      <div id="view-detail" class="view p-4 hidden"></div>
+
+      <!-- Vue : Classement -->
+      <div id="view-standings" class="view p-4 hidden"></div>
+
+      <!-- Vue : Tableau -->
+      <div id="view-tournament" class="view p-4 hidden"></div>
+
+      <!-- Vue : Admin -->
+      <div id="view-admin" class="view p-4 hidden"></div>
+
+      <!-- Vue : Profile -->
+      <div id="view-profile" class="view p-4 hidden"></div>
+
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="bg-surface border-t border-border fixed bottom-0 left-0 right-0 flex max-w-lg mx-auto z-20">
+      <button class="nav-btn active" data-view="matches">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        <span>Matchs</span>
+      </button>
+      <button class="nav-btn" data-view="standings">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+          <line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+        <span>Classement</span>
+      </button>
+      <button class="nav-btn hidden" data-view="tournament" id="nav-tournament">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18M10 3v18"/>
+        </svg>
+        <span>Tableau</span>
+      </button>
+      <button class="nav-btn hidden" data-view="admin" id="nav-admin">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <circle cx="12" cy="8" r="4"/><path stroke-linecap="round" d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+        </svg>
+        <span>Admin</span>
+      </button>
+      <button class="nav-btn" data-view="profile">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <circle cx="12" cy="8" r="4"/>
+          <path stroke-linecap="round" d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+        </svg>
+        <span>Profil</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <script src="translations.js"></script>
+  <script src="api.js?v=3"></script>
+  <script src="app.js?v=3"></script>
+</body>
+</html>
