@@ -490,3 +490,27 @@ select.pick-select option {
   max-width: 100%;
 }
 .profile-pseudo-btn { max-width: 100%; }
+
+.avatar-img {
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
+}
+.avatar-img-xs  { width: 1rem;   height: 1rem; }
+.avatar-img-sm  { width: 1.25rem; height: 1.25rem; }
+.avatar-img-md  { width: 1.5rem;  height: 1.5rem; }
+.avatar-img-lg  { width: 2rem;    height: 2rem; }
+.avatar-img-xl  { width: 2.5rem;  height: 2.5rem; }
+.avatar-img-grid { width: 1.75rem; height: 1.75rem; }
+.avatar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+}
+#header-pseudo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}

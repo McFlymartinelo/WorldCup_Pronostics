@@ -22,3 +22,9 @@ Thumbs.db
 *.log
 npm-debug.log*
 offset*.json
+
+# Source temporaire recadrage avatar
+scripts/alpine-source.png
+scripts/alpineR-source.png
+scripts/megane3RSnoir-source.png
+scripts/megane4RSsafety-source.png

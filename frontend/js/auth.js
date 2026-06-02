@@ -157,8 +157,8 @@ async function showApp () {
   const pseudoEl = document.getElementById('header-pseudo');
   if (pseudoEl) {
     pseudoEl.innerHTML = `
-      <span style="font-size:14px">${state.user.avatar}</span>
-      <span>${state.user.pseudo}</span>`;
+      ${avatarHtml(state.user.avatar || DEFAULT_AVATAR, { size: 'sm' })}
+      <span>${escHtml(state.user.pseudo)}</span>`;
   }
 
   navigateTo('matches');

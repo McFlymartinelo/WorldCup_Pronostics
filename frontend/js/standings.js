@@ -23,9 +23,9 @@ function standingsTableHtml (rows, badgesMap = {}) {
     <div class="standings-row flex items-center gap-2 bg-surface border border-border ${i === 0 ? 'rank-1' : ''} rounded-xl px-3 py-3 mb-2">
       <span class="text-base w-6 text-center flex-shrink-0">${medals[i] ?? `<span class="text-muted text-sm">${i + 1}</span>`}</span>
       <span class="flex-1 text-sm flex items-center gap-1.5 min-w-0">
-        <span class="w-7 h-7 rounded-full flex items-center justify-center text-sm flex-shrink-0"
+        <span class="w-7 h-7 rounded-full flex items-center justify-center text-sm flex-shrink-0 overflow-hidden"
               style="background:${u.color || '#3b82f6'}22; border:1px solid ${u.color || '#3b82f6'}">
-          ${u.avatar || '⚽'}
+          ${avatarHtml(u.avatar || DEFAULT_AVATAR, { size: 'sm' })}
         </span>
         <span class="truncate ${u.pseudo === state.user?.pseudo ? 'text-white font-semibold' : 'text-slate-300'}">
           ${canCompare
@@ -91,14 +91,14 @@ async function openCompareModal (opponentId) {
 
       <div class="grid grid-cols-2 gap-3 mb-4">
         <div class="compare-player-card ${lead === 'a' ? 'leading' : ''}">
-          <span class="text-2xl">${a.avatar || '⚽'}</span>
+          ${avatarHtml(a.avatar || DEFAULT_AVATAR, { size: 'lg' })}
           <p class="text-sm font-semibold text-white truncate">${escHtml(a.pseudo)}</p>
           <p class="text-lg font-bold text-blue-400">${a.total_points} pts</p>
           <p class="text-[10px] text-muted">${a.exact_scores} exact · ${a.good_diff ?? 0} écart · ${a.good_results} 1N2</p>
           <div class="player-badges mt-1">${badgesInlineHtml(a.badges)}</div>
         </div>
         <div class="compare-player-card ${lead === 'b' ? 'leading' : ''}">
-          <span class="text-2xl">${b.avatar || '⚽'}</span>
+          ${avatarHtml(b.avatar || DEFAULT_AVATAR, { size: 'lg' })}
           <p class="text-sm font-semibold text-white truncate">${escHtml(b.pseudo)}</p>
           <p class="text-lg font-bold text-blue-400">${b.total_points} pts</p>
           <p class="text-[10px] text-muted">${b.exact_scores} exact · ${b.good_diff ?? 0} écart · ${b.good_results} 1N2</p>
@@ -272,8 +272,8 @@ function statsPanelHtml (stats) {
   const playerCards = (stats.players || []).map(p => `
     <div class="stat-card">
       <div class="flex items-center gap-2 mb-2">
-        <span class="w-8 h-8 rounded-full flex items-center justify-center text-sm"
-              style="background:${p.color}22;border:1px solid ${p.color}">${p.avatar}</span>
+        <span class="w-8 h-8 rounded-full flex items-center justify-center text-sm overflow-hidden"
+              style="background:${p.color}22;border:1px solid ${p.color}">${avatarHtml(p.avatar || DEFAULT_AVATAR, { size: 'sm' })}</span>
         <div class="min-w-0 flex-1">
           <p class="text-sm font-medium text-white truncate">${escHtml(p.pseudo)}</p>
           <p class="text-[10px] text-muted">#${p.current_rank} · ${p.total_points} pts</p>

@@ -20,6 +20,7 @@ const {
   groupKey,
 } = require('../services/specialPicksService');
 const { getUserBadges } = require('../services/badgesService');
+const { isValidAvatar, canonicalAvatar, DEFAULT_AVATAR } = require('../data/avatarCatalog');
 
 const router = express.Router();
 
@@ -97,7 +98,7 @@ router.get('/', requireAuth, requirePool, async (req, res) => {
 router.patch('/', requireAuth, requirePool, async (req, res) => {
   const { avatar, color, pseudo, pick_winner, pick_top_scorer, special_picks } = req.body;
 
-  if (avatar && [...avatar].length > 4) {
+  if (avatar !== undefined && avatar !== null && avatar !== '' && !isValidAvatar(avatar)) {
     return res.status(400).json({ error: 'Avatar invalide' });
   }
   if (color && !/^#[0-9a-fA-F]{6}$/.test(color)) {
@@ -172,7 +173,10 @@ router.patch('/', requireAuth, requirePool, async (req, res) => {
   const userSets = [];
   const userParams = [];
 
-  if (avatar !== undefined) { userSets.push('avatar = ?'); userParams.push(avatar || '⚽'); }
+  if (avatar !== undefined) {
+    userSets.push('avatar = ?');
+    userParams.push(isValidAvatar(avatar) ? canonicalAvatar(avatar) : DEFAULT_AVATAR);
+  }
   if (color !== undefined)  { userSets.push('color = ?');  userParams.push(color || '#3b82f6'); }
   if (wantsPseudoUpdate)    { userSets.push('pseudo = ?'); userParams.push(String(pseudo).trim()); }
 

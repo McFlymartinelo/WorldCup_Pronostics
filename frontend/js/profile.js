@@ -17,7 +17,7 @@ function syncPseudoInUI (updated, avatar) {
   const header = document.getElementById('header-pseudo');
   if (header) {
     header.innerHTML = `
-      <span style="font-size:14px">${avatar || state.user.avatar || '⚽'}</span>
+      ${avatarHtml(avatar || state.user.avatar || DEFAULT_AVATAR, { size: 'sm' })}
       <span>${escHtml(updated.pseudo)}</span>`;
   }
 }
@@ -140,12 +140,8 @@ async function renderProfile () {
   const groupLocks = profile.group_locks || {};
   const groupNames = Object.keys(groupOptions).sort((a, b) => a.localeCompare(b, 'fr'));
 
-  const AVATARS = [
-    '⚽', '🏆', '🥅', '🎯', '🔥', '⚡', '💥', '🌟', '👑', '🦁',
-    '🐯', '🦊', '🐺', '🦅', '🦋', '🌈', '🎭', '🎪', '🚀', '💎',
-    '🍕', '🌮', '🎸', '🎺', '🥁', '🏄', '🤿', '🧗', '🏇', '🤺',
-    '🇫🇷', '🇧🇷', '🇩🇪', '🇪🇸', '🇵🇹', '🇦🇷', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', '🇳🇱', '🇲🇦', '🇯🇵',
-  ];
+  const AVATARS = EMOJI_AVATARS;
+  const currentAvatar = profile.avatar || DEFAULT_AVATAR;
 
   const COLORS = [
     '#3b82f6', '#8b5cf6', '#ec4899', '#ef4444',
@@ -157,10 +153,10 @@ async function renderProfile () {
     <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-4">Mon profil</p>
 
     <div class="bg-surface border border-border rounded-xl p-4 mb-4 flex items-center gap-4">
-      <div class="w-14 h-14 rounded-full flex items-center justify-center text-2xl flex-shrink-0"
+      <div class="w-14 h-14 rounded-full flex items-center justify-center text-2xl flex-shrink-0 overflow-hidden"
            id="preview-avatar-bg"
            style="background: ${profile.color}22; border: 2px solid ${profile.color}">
-        <span id="preview-avatar">${profile.avatar || '⚽'}</span>
+        <span id="preview-avatar">${avatarHtml(currentAvatar, { size: 'xl' })}</span>
       </div>
       <div class="flex-1 min-w-0">
         <button type="button" id="profile-pseudo-btn"
@@ -196,12 +192,13 @@ async function renderProfile () {
 
     <div class="bg-surface border border-border rounded-xl p-4 mb-4">
       <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Choisis ton avatar</p>
-      <div class="grid grid-cols-10 gap-2" id="avatar-grid">
-        ${AVATARS.map(a => `
-          <button class="avatar-btn text-xl p-1.5 rounded-lg transition hover:bg-white/10
-                         ${a === (profile.avatar || '⚽') ? 'bg-white/20 ring-1 ring-white/40' : ''}"
-                  data-avatar="${a}">${a}</button>
-        `).join('')}
+      <p class="text-[10px] text-muted mb-2">Emojis</p>
+      <div class="grid grid-cols-10 gap-2 mb-4" id="avatar-grid-emoji">
+        ${AVATARS.map(a => avatarPickerBtnHtml(a, a === currentAvatar)).join('')}
+      </div>
+      <p class="text-[10px] text-muted mb-2">Images</p>
+      <div class="grid grid-cols-8 sm:grid-cols-10 gap-2" id="avatar-grid-image">
+        ${IMAGE_AVATAR_KEYS.map(a => avatarPickerBtnHtml(a, a === currentAvatar)).join('')}
       </div>
     </div>
 
@@ -299,17 +296,21 @@ async function renderProfile () {
       ✓ Sauvegarder
     </button>`;
 
-  let selectedAvatar = profile.avatar || '⚽';
+  let selectedAvatar = currentAvatar;
   let selectedColor = profile.color || '#3b82f6';
+
+  function highlightAvatarBtn (avatar) {
+    el.querySelectorAll('.avatar-btn').forEach(b => {
+      b.className = b.className.replace(' bg-white/20 ring-1 ring-white/40', '');
+      if ((b.getAttribute('data-avatar') || b.dataset.avatar) === avatar) b.className += ' bg-white/20 ring-1 ring-white/40';
+    });
+  }
 
   el.querySelectorAll('.avatar-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      selectedAvatar = btn.dataset.avatar;
-      el.querySelectorAll('.avatar-btn').forEach(b =>
-        b.className = b.className.replace(' bg-white/20 ring-1 ring-white/40', ''),
-      );
-      btn.className += ' bg-white/20 ring-1 ring-white/40';
-      document.getElementById('preview-avatar').textContent = selectedAvatar;
+      selectedAvatar = btn.getAttribute('data-avatar') || btn.dataset.avatar;
+      highlightAvatarBtn(selectedAvatar);
+      setAvatarElement(document.getElementById('preview-avatar'), selectedAvatar);
     });
   });
 
@@ -330,7 +331,7 @@ async function renderProfile () {
     updatePreviewColor(selectedColor);
   });
 
-  bindProfilePseudoEdit(el, profile.pseudo, profile.avatar || '⚽');
+  bindProfilePseudoEdit(el, profile.pseudo, profile.avatar || DEFAULT_AVATAR);
 
   document.getElementById('btn-export-standings')?.addEventListener('click', async () => {
     try {
@@ -405,7 +406,7 @@ async function renderProfile () {
       if (state.currentView === 'standings') renderStandings();
 
       document.getElementById('header-pseudo').innerHTML = `
-        <span style="font-size:14px">${selectedAvatar}</span>
+        ${avatarHtml(selectedAvatar, { size: 'sm' })}
         <span>${escHtml(state.user.pseudo)}</span>`;
 
       toast('Profil sauvegardé', 'success');

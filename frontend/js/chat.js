@@ -19,8 +19,8 @@ function chatMessageHtml (msg) {
     <div class="chat-msg" data-msg-id="${msg.id}">
       <div class="chat-meta ${msg.mine ? 'mine' : ''}">
         ${msg.mine ? `<span>${formatChatTime(msg.created_at)}</span>` : `
-          <span class="w-5 h-5 rounded-full inline-flex items-center justify-center text-xs"
-                style="background:${msg.color}22;border:1px solid ${msg.color}">${msg.avatar}</span>
+          <span class="w-5 h-5 rounded-full inline-flex items-center justify-center text-xs overflow-hidden"
+                style="background:${msg.color}22;border:1px solid ${msg.color}">${avatarHtml(msg.avatar || DEFAULT_AVATAR, { size: 'xs' })}</span>
           <span class="text-slate-400">${escHtml(msg.pseudo)}</span>
           <span>${formatChatTime(msg.created_at)}</span>`}
       </div>
