@@ -8,7 +8,7 @@ const { requireAuth } = require('../middleware/auth');
 const router = express.Router();
 
 // POST /api/auth/register  — inscription libre
-router.post('/register', (req, res) => {
+router.post('/register', async (req, res) => {
   const { pseudo, password } = req.body;
   if (!pseudo || !password)
     return res.status(400).json({ error: 'pseudo et password requis' });
@@ -19,14 +19,17 @@ router.post('/register', (req, res) => {
 
   try {
     const hash = bcrypt.hashSync(password, 10);
-    const { lastInsertRowid } = db
-      .prepare(`INSERT INTO users (pseudo, password_hash) VALUES (?, ?)`)
-      .run(pseudo.trim(), hash);
-    const token = signToken({ id: lastInsertRowid, pseudo, role: 'player' });
-    res.status(201).json({ token, pseudo, role: 'player' });
+    const { lastID } = await run(
+      `INSERT INTO users (pseudo, password_hash) VALUES (?, ?)`,
+      [pseudo.trim(), hash]
+    );
+    const trimmed = pseudo.trim();
+    const token = signToken({ id: lastID, pseudo: trimmed, role: 'player' });
+    res.status(201).json({ token, pseudo: trimmed, role: 'player' });
   } catch (e) {
     if (e.message.includes('UNIQUE'))
       return res.status(409).json({ error: 'Ce pseudo est déjà pris' });
+    console.error('[auth/register]', e.message);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
