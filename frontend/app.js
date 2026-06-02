@@ -402,6 +402,136 @@ function attrEsc (s) {
     .replace(/</g, '&lt;');
 }
 
+function formDots (formStr) {
+  if (!formStr) return '<span class="text-muted text-xs">—</span>';
+  return formStr.split(' ').filter(Boolean).map(r => {
+    const c = r === 'V' || r === 'W' ? 'W' : r === 'D' ? 'D' : r === 'N' ? 'D' : 'L';
+    return `<span class="form-${c} w-5 h-5 rounded-full text-[10px] font-bold inline-flex items-center justify-center">${r === 'W' ? 'V' : r}</span>`;
+  }).join('');
+}
+
+function matchLinesHtml (lines, emptyMsg = '—') {
+  if (!lines?.length) return `<p class="text-xs text-muted">${emptyMsg}</p>`;
+  return `<div class="space-y-1">${lines.map(l => {
+    const venue = l.venue ? `<span class="text-[10px] px-1.5 py-0.5 rounded ${l.venue === 'V' ? 'bg-green-950 text-green-400' : l.venue === 'D' ? 'bg-red-950 text-red-400' : 'bg-slate-800 text-slate-400'}">${l.venue === 'V' ? 'V' : l.venue === 'D' ? 'D' : 'N'}</span>` : '';
+    const meta = [l.date, l.competition].filter(Boolean).join(' · ');
+    return `<div class="flex items-center gap-2 text-xs py-1 border-b border-border last:border-0">
+      ${venue}
+      <span class="text-slate-300 flex-1">${escHtml(l.opponent || '?')}</span>
+      <span class="font-semibold text-white">${escHtml(l.score || '')}</span>
+      ${meta ? `<span class="text-muted text-[10px]">${escHtml(meta)}</span>` : ''}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function teamIntelHtml (summary, teamName) {
+  if (!summary?.found) return `
+    <div class="bg-surface border border-border rounded-xl p-4 mb-4">
+      <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+        ${flagEmoji(teamName)} ${shortName(teamName)}
+      </p>
+      <p class="text-xs text-muted italic">Données non disponibles</p>
+    </div>`;
+
+  const friendlies = summary.friendlies_live || summary.friendlies || [];
+  const qualMatches = summary.qualification_matches || [];
+
+  return `
+    <div class="bg-surface border border-border rounded-xl p-4 mb-4">
+      <div class="flex items-start justify-between gap-2 mb-3">
+        <p class="text-xs font-semibold text-muted uppercase tracking-wider">
+          ${flagEmoji(teamName)} ${shortName(teamName)}
+        </p>
+        ${summary.fifa_rank ? `<span class="text-[10px] bg-blue-950 text-blue-300 px-2 py-0.5 rounded-full shrink-0">FIFA #${summary.fifa_rank}</span>` : ''}
+      </div>
+
+      ${summary.history ? `<p class="text-xs text-slate-400 italic mb-3 leading-relaxed">${escHtml(summary.history)}</p>` : ''}
+
+      <div class="grid grid-cols-2 gap-2 mb-3 text-xs">
+        ${summary.best_wc ? `<div class="bg-bg rounded-lg p-2"><p class="text-muted text-[10px] mb-0.5">Meilleur résultat CdM</p><p class="text-white font-medium">${escHtml(summary.best_wc)}</p></div>` : ''}
+        ${summary.wc_2022 || summary.wc_2018 ? `<div class="bg-bg rounded-lg p-2"><p class="text-muted text-[10px] mb-0.5">CdM récentes</p><p class="text-white">${summary.wc_2022 ? `2022: ${escHtml(summary.wc_2022)}` : ''}${summary.wc_2022 && summary.wc_2018 ? '<br>' : ''}${summary.wc_2018 ? `2018: ${escHtml(summary.wc_2018)}` : ''}</p></div>` : ''}
+      </div>
+
+      ${summary.qualification ? `
+        <details class="intel-block mb-2" open>
+          <summary class="text-xs font-semibold text-slate-300 cursor-pointer py-1">🛤️ Parcours qualificatif</summary>
+          <p class="text-xs text-slate-400 mt-1 mb-2">${escHtml(summary.qualification)}</p>
+          ${matchLinesHtml(qualMatches)}
+        </details>` : ''}
+
+      ${summary.streak || summary.form_extended ? `
+        <details class="intel-block mb-2">
+          <summary class="text-xs font-semibold text-slate-300 cursor-pointer py-1">📈 Série & forme</summary>
+          <div class="mt-2 space-y-2">
+            ${summary.streak ? `<p class="text-xs text-amber-400/90">Série : ${escHtml(summary.streak)}</p>` : ''}
+            ${summary.form_extended ? `<div class="flex flex-wrap gap-1 items-center"><span class="text-[10px] text-muted mr-1">12 der. :</span>${formDots(summary.form_extended)}</div>` : ''}
+          </div>
+        </details>` : ''}
+
+      ${friendlies.length ? `
+        <details class="intel-block mb-2">
+          <summary class="text-xs font-semibold text-slate-300 cursor-pointer py-1">🤝 Matchs de préparation</summary>
+          <div class="mt-2">${matchLinesHtml(friendlies.map(f => ({ opponent: f.opponent, score: f.score, date: f.date, venue: null })))}</div>
+        </details>` : ''}
+
+      ${summary.watch?.length ? `
+        <details class="intel-block mb-2" open>
+          <summary class="text-xs font-semibold text-slate-300 cursor-pointer py-1">👀 Joueurs à surveiller</summary>
+          <div class="flex flex-wrap gap-1.5 mt-2">
+            ${summary.watch.map(p => `<span class="text-xs bg-purple-950/60 text-purple-300 px-2 py-0.5 rounded-full">${escHtml(p)}</span>`).join('')}
+          </div>
+        </details>` : ''}
+
+      ${summary.absentees?.length ? `
+        <details class="intel-block mb-2">
+          <summary class="text-xs font-semibold text-slate-300 cursor-pointer py-1">🚫 Grands absents</summary>
+          <div class="mt-2 space-y-1">
+            ${summary.absentees.map(a => `
+              <div class="text-xs py-1 border-b border-border last:border-0">
+                <span class="text-red-300 font-medium">${escHtml(a.player)}</span>
+                <span class="text-muted"> — ${escHtml(a.reason)}</span>
+              </div>`).join('')}
+          </div>
+        </details>` : ''}
+
+      ${summary.best ? `
+        <details class="intel-block">
+          <summary class="text-xs font-semibold text-slate-300 cursor-pointer py-1">📚 Fiche historique</summary>
+          <div class="mt-2 space-y-1 text-xs">
+            <p><span class="text-muted">Star actuelle :</span> <span class="text-white">${escHtml(summary.best)}</span></p>
+            <p><span class="text-muted">Record capé :</span> <span class="text-white">${escHtml(summary.capped)}</span></p>
+            <p><span class="text-muted">Record buteur :</span> <span class="text-white">${escHtml(summary.scorer)}</span></p>
+          </div>
+        </details>` : ''}
+    </div>`;
+}
+
+function h2hHtml (h2h, home, away) {
+  const meetings = [
+    ...(h2h?.meetings || []),
+    ...(h2h?.live_meetings || []),
+  ];
+  return `
+    <div class="bg-surface border border-border rounded-xl p-4 mb-4">
+      <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+        ⚔️ Confrontations directes
+      </p>
+      <p class="text-xs text-slate-400 mb-3">
+        ${flagEmoji(home)} ${shortName(home)} vs ${flagEmoji(away)} ${shortName(away)}
+      </p>
+      ${h2h?.summary ? `<p class="text-xs text-slate-300 mb-3">${escHtml(h2h.summary)}</p>` : ''}
+      ${h2h?.stats ? `<p class="text-[10px] text-muted mb-2">${h2h.stats.played} matchs · ${h2h.team_a}: ${h2h.stats.wins_a}V · N: ${h2h.stats.draws} · ${h2h.team_b}: ${h2h.stats.wins_b}V</p>` : ''}
+      ${meetings.length ? `<div class="space-y-1">${meetings.map(mt => `
+        <div class="text-xs py-1.5 border-b border-border last:border-0 flex flex-wrap gap-x-2">
+          <span class="text-muted">${escHtml(mt.date || '')}</span>
+          <span class="text-slate-400">${escHtml(mt.comp || '')}</span>
+          <span class="font-semibold text-white">${escHtml(mt.score || '')}</span>
+          ${mt.note ? `<span class="text-slate-400">${escHtml(mt.note)}</span>` : ''}
+        </div>`).join('')}</div>`
+      : `<p class="text-xs text-muted italic">Aucune confrontation recensée.</p>`}
+    </div>`;
+}
+
 function updateNotifBtn(btn, subscribed) {
   btn.dataset.subscribed = subscribed;
   btn.title = subscribed ? 'Notifications activées — cliquer pour désactiver' : 'Activer les notifications';
@@ -588,65 +718,24 @@ async function renderDetail(matchId) {
     ).join('');
   };
 
-  // Charge les résumés des deux équipes en parallèle
-  const [homeSummary, awaySummary, homeSquad, awaySquad] = await Promise.all([
+  // Charge fiches équipes, effectifs et H2H
+  const [homeSummary, awaySummary, homeSquad, awaySquad, h2h] = await Promise.all([
     API.getTeamSummary(m.home_team).catch(() => null),
     API.getTeamSummary(m.away_team).catch(() => null),
     API.getSquad(m.home_team).catch(() => null),
     API.getSquad(m.away_team).catch(() => null),
+    API.getH2H(m.home_team, m.away_team).catch(() => null),
   ]);
-
-  // Puis insère ce HTML après la carte d'en-tête :
-  const teamSummaryHtml = (summary, teamName) => {
-    if (!summary?.found) return `
-      <div class="bg-surface border border-border rounded-xl p-4">
-        <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-2">
-          ${flagEmoji(teamName)} ${shortName(teamName)}
-        </p>
-        <p class="text-xs text-muted italic">Données non disponibles</p>
-      </div>`;
-
-    return `
-      <div class="bg-surface border border-border rounded-xl p-4">
-        <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-3">
-          ${flagEmoji(teamName)} ${shortName(teamName)}
-        </p>
-        <p class="text-xs text-slate-400 italic mb-3 leading-relaxed">${summary.history}</p>
-        <div class="space-y-2">
-          <div class="flex items-center justify-between py-1.5 border-b border-border">
-            <div class="flex items-center gap-2">
-              <span>⭐</span>
-              <div>
-                <p class="text-xs text-muted">Meilleur joueur</p>
-                <p class="text-xs font-semibold text-white">${summary.best}</p>
-              </div>
-            </div>
-          </div>
-          <div class="flex items-center justify-between py-1.5 border-b border-border">
-            <div class="flex items-center gap-2">
-              <span>🎽</span>
-              <div>
-                <p class="text-xs text-muted">Plus capé</p>
-                <p class="text-xs font-semibold text-white">${summary.capped}</p>
-              </div>
-            </div>
-          </div>
-          <div class="flex items-center justify-between py-1.5">
-            <div class="flex items-center gap-2">
-              <span>⚽</span>
-              <div>
-                <p class="text-xs text-muted">Meilleur buteur</p>
-                <p class="text-xs font-semibold text-white">${summary.scorer}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>`;
-  };
 
   const squadHtml = (squadData, teamName) => {
     const players = squadData?.squad || [];
-    if (!players.length) return '';
+    if (!players.length) return `
+      <div class="bg-surface border border-border rounded-xl p-3 h-full">
+        <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+          ${flagEmoji(teamName)} Sélection — ${shortName(teamName)}
+        </p>
+        <p class="text-xs text-muted italic">Effectif indisponible</p>
+      </div>`;
 
     const byPos = {
       Gardiens: players.filter(p => ['GK'].includes(p.position)),
@@ -659,7 +748,7 @@ async function renderDetail(matchId) {
     const posEmoji = { Gardiens: '🧤', Défenseurs: '🛡️', Milieux: '⚙️', Attaquants: '⚡', Autres: '👤' };
 
     let html = `
-      <div class="bg-surface border border-border rounded-xl p-4 mb-4">
+      <div class="bg-surface border border-border rounded-xl p-3 h-full">
         <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-3">
           ${flagEmoji(teamName)} Sélection — ${shortName(teamName)}
           <span class="font-normal">(${players.length} joueurs)</span>
@@ -747,14 +836,15 @@ async function renderDetail(matchId) {
       </div>
     </div>
 
-    <!-- Résumés des équipes -->
-    <div class="grid grid-cols-2 gap-3 mb-4">
-      ${teamSummaryHtml(homeSummary, m.home_team)}
-      ${teamSummaryHtml(awaySummary, m.away_team)}
-    </div>
+    <!-- Fiches équipes -->
+    ${teamIntelHtml(homeSummary, m.home_team)}
+    ${teamIntelHtml(awaySummary, m.away_team)}
 
-    <!-- Effectifs des équipes -->
-    <div class="grid grid-cols-2 gap-3 mb-4">
+    <!-- Historique des confrontations -->
+    ${h2hHtml(h2h, m.home_team, m.away_team)}
+
+    <!-- Effectifs (côte à côte) -->
+    <div class="grid grid-cols-2 gap-3 mb-4 items-start">
       ${squadHtml(homeSquad, m.home_team)}
       ${squadHtml(awaySquad, m.away_team)}
     </div>

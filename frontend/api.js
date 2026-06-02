@@ -44,6 +44,7 @@ const API = (() => {
     getSyncLog:     ()                  => req('GET',    '/admin/sync-log'),
     syncForms:      ()                  => req('POST', '/admin/sync/forms'),
     getTeamSummary: (name)              => req('GET', `/teams/${encodeURIComponent(name)}/summary`),
+    getH2H:           (home, away)        => req('GET', `/teams/h2h/${encodeURIComponent(home)}/${encodeURIComponent(away)}`),
     getSquad:       (teamName)          => req('GET', `/squads/${encodeURIComponent(teamName)}`),
     syncSquads:     ()                  => req('POST', '/admin/sync/squads'),
     getTournament:  ()                  => req('GET', '/tournament'),

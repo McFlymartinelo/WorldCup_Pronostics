@@ -100,4 +100,6 @@ select.pick-select option {
 .form-L { background: #450a0a; color: #f87171; }
 
 /* ── Carte classement top 1 ──────────────────────────────────── */
-.rank-1 { border-color: #7c3aed44; }
+.intel-block summary { list-style: none; }
+.intel-block summary::-webkit-details-marker { display: none; }
+.intel-block[open] summary { color: #93c5fd; }

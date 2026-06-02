@@ -1,0 +1,932 @@
+'use strict';
+
+/**
+ * Alias football-data.org / BSD → clé canonique teamIntel.
+ */
+const ALIASES = {
+  'usa': 'United States',
+  'united states': 'United States',
+  'czechia': 'Czechia',
+  'czech republic': 'Czechia',
+  'bosnia-herzegovina': 'Bosnia-Herzegovina',
+  'bosnia & herzegovina': 'Bosnia-Herzegovina',
+  'cabo verde': 'Cape Verde Islands',
+  'cape verde': 'Cape Verde Islands',
+  'cape verde islands': 'Cape Verde Islands',
+  "côte d'ivoire": 'Ivory Coast',
+  'ivory coast': 'Ivory Coast',
+  'curacao': 'Curaçao',
+  'curaçao': 'Curaçao',
+  'south korea': 'South Korea',
+  'korea republic': 'South Korea',
+  'türkiye': 'Turkey',
+  'turkey': 'Turkey',
+  'congo dr': 'Congo DR',
+  'dr congo': 'Congo DR',
+};
+
+/** @typedef {{ opponent: string, score: string, venue?: string }} MatchLine */
+/** @typedef {{ player: string, reason: string }} Absentee */
+
+/**
+ * Données enrichies CdM 2026 — mises à jour manuellement, complétées par l'API BSD.
+ * @type {Record<string, object>}
+ */
+const TEAMS = {
+  France: {
+    fifa_rank: 2,
+    best_wc: 'Champion (1998, 2018)',
+    wc_2018: 'Champion',
+    wc_2022: 'Finaliste',
+    qualification: '6V 2N 0D en qualifications UEFA (Groupe I) — domination face aux Pays-Bas, Grèce et Irlande.',
+    qualification_matches: [
+      { opponent: 'Pays-Bas', score: '2-1', venue: 'V' },
+      { opponent: 'Grèce', score: '2-0', venue: 'V' },
+      { opponent: 'Irlande', score: '1-0', venue: 'V' },
+      { opponent: 'Pays-Bas', score: '0-0', venue: 'N' },
+    ],
+    streak: '8 matchs sans défaite',
+    friendlies: [
+      { opponent: 'Uruguay', score: '2-0', date: 'mars 2026' },
+      { opponent: 'Allemagne', score: '0-0', date: 'mars 2026' },
+    ],
+    watch: ['Kylian Mbappé', 'Antoine Griezmann', 'William Saliba', 'Aurélien Tchouaméni'],
+    absentees: [
+      { player: "N'Golo Kanté", reason: 'Blessure (ischio-jambiers)' },
+      { player: 'Presnel Kimpembe', reason: 'Blessure (genou)' },
+      { player: 'Mike Maignan', reason: 'Blessure (côte) — incertain' },
+    ],
+    history: "Double champion du monde, finaliste en 2022. L'une des références mondiales.",
+    best: 'Kylian Mbappé', capped: 'Lilian Thuram (142 sél.)', scorer: 'Thierry Henry (51 buts)',
+  },
+  Brazil: {
+    fifa_rank: 5,
+    best_wc: 'Champion (5 titres — record)',
+    wc_2018: 'Quarts de finale',
+    wc_2022: 'Quarts de finale',
+    qualification: 'Qualifié directement (CONMEBOL) — 1er du groupe sud-américain.',
+    qualification_matches: [
+      { opponent: 'Argentine', score: '1-0', venue: 'V' },
+      { opponent: 'Uruguay', score: '2-1', venue: 'V' },
+      { opponent: 'Colombie', score: '1-1', venue: 'N' },
+    ],
+    streak: '4 victoires consécutives',
+    friendlies: [
+      { opponent: 'Angleterre', score: '1-0', date: 'mars 2026' },
+      { opponent: 'Espagne', score: '3-3', date: 'mars 2026' },
+    ],
+    watch: ['Vinícius Jr', 'Rodrygo', 'Raphinha', 'Endrick'],
+    absentees: [
+      { player: 'Neymar', reason: 'Blessure (croisé) — forfait' },
+      { player: 'Casemiro', reason: 'Choix du sélectionneur / forme' },
+    ],
+    history: '5 titres mondiaux. La Seleção reste la nation la plus titrée.',
+    best: 'Vinícius Jr', capped: 'Cafu (142 sél.)', scorer: 'Pelé (77 buts)',
+  },
+  Argentina: {
+    fifa_rank: 1,
+    best_wc: 'Champion (2022, 1986, 1978)',
+    wc_2018: 'Huitième de finale',
+    wc_2022: 'Champion',
+    qualification: 'Qualifié CONMEBOL — dans le top 6 automatique.',
+    qualification_matches: [
+      { opponent: 'Brésil', score: '0-1', venue: 'D' },
+      { opponent: 'Chili', score: '3-0', venue: 'V' },
+      { opponent: 'Paraguay', score: '2-0', venue: 'V' },
+    ],
+    streak: 'Invaincu en 12 matchs',
+    friendlies: [
+      { opponent: 'Portugal', score: '1-0', date: 'mars 2026' },
+    ],
+    watch: ['Lionel Messi', 'Lautaro Martínez', 'Enzo Fernández', 'Julián Álvarez'],
+    absentees: [
+      { player: 'Giovani Lo Celso', reason: 'Blessure (musculaire)' },
+      { player: 'Paulo Dybala', reason: 'Choix du sélectionneur' },
+    ],
+    history: 'Champion du monde en titre. Messi a soulevé le trophée en 2022.',
+    best: 'Lionel Messi', capped: 'Lionel Messi (190+ sél.)', scorer: 'Lionel Messi (112 buts)',
+  },
+  Germany: {
+    fifa_rank: 11,
+    best_wc: 'Champion (4 titres — 1954, 74, 90, 2014)',
+    wc_2018: 'Premier tour (éliminé)',
+    wc_2022: 'Huitième de finale',
+    qualification: 'Qualifié UEFA — 1er du groupe A.',
+    qualification_matches: [
+      { opponent: 'Pays-Bas', score: '2-2', venue: 'N' },
+      { opponent: 'Hongrie', score: '2-0', venue: 'V' },
+    ],
+    streak: '3 matchs sans défaite',
+    friendlies: [
+      { opponent: 'France', score: '0-0', date: 'mars 2026' },
+      { opponent: 'Italie', score: '2-1', date: 'mars 2026' },
+    ],
+    watch: ['Florian Wirtz', 'Jamal Musiala', 'Joshua Kimmich', 'Niclas Füllkrug'],
+    absentees: [
+      { player: 'Manuel Neuer', reason: 'Blessure (côte)' },
+      { player: 'Leon Goretzka', reason: 'Blessure (genou)' },
+    ],
+    history: '4 fois champion du monde, 8 finales disputées.',
+    best: 'Florian Wirtz', capped: 'Lothar Matthäus (150 sél.)', scorer: 'Miroslav Klose (71 buts)',
+  },
+  Spain: {
+    fifa_rank: 3,
+    best_wc: 'Champion (2010)',
+    wc_2018: 'Huitième de finale',
+    wc_2022: 'Huitième de finale',
+    qualification: 'Qualifié UEFA — 1er du groupe G.',
+    qualification_matches: [
+      { opponent: 'Serbie', score: '3-1', venue: 'V' },
+      { opponent: 'Danemark', score: '1-0', venue: 'V' },
+    ],
+    streak: '6 victoires consécutives',
+    friendlies: [
+      { opponent: 'Brésil', score: '3-3', date: 'mars 2026' },
+    ],
+    watch: ['Pedri', 'Gavi', 'Lamine Yamal', 'Álvaro Morata'],
+    absentees: [
+      { player: 'Gavi', reason: 'Blessure (genou) — retour incertain' },
+      { player: 'Ansu Fati', reason: 'Choix du sélectionneur' },
+    ],
+    history: 'Champion 2010, triple champion d\'Europe récent.',
+    best: 'Pedri', capped: 'Sergio Ramos (180 sél.)', scorer: 'David Villa (59 buts)',
+  },
+  England: {
+    fifa_rank: 4,
+    best_wc: 'Champion (1966)',
+    wc_2018: 'Demi-finale',
+    wc_2022: 'Quarts de finale',
+    qualification: 'Qualifié UEFA — 1er du groupe K.',
+    qualification_matches: [
+      { opponent: 'Italie', score: '2-1', venue: 'V' },
+      { opponent: 'Ukraine', score: '3-0', venue: 'V' },
+    ],
+    streak: '5 matchs sans défaite',
+    friendlies: [
+      { opponent: 'Brésil', score: '0-1', date: 'mars 2026' },
+    ],
+    watch: ['Jude Bellingham', 'Harry Kane', 'Phil Foden', 'Bukayo Saka'],
+    absentees: [
+      { player: 'Reece James', reason: 'Blessure (ischio)' },
+      { player: 'Ben Chilwell', reason: 'Blessure (genou)' },
+    ],
+    history: 'Champion 1966, demi-finaliste 2018 et finaliste Euro 2020/2024.',
+    best: 'Jude Bellingham', capped: 'Peter Shilton (125 sél.)', scorer: 'Wayne Rooney (53 buts)',
+  },
+  'United States': {
+    fifa_rank: 15,
+    best_wc: '3e (1930)',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Huitième de finale',
+    qualification: 'Qualifié automatiquement — co-organisateur CdM 2026.',
+    qualification_matches: [
+      { opponent: 'Mexique', score: '2-0', venue: 'V' },
+      { opponent: 'Jamaïque', score: '3-1', venue: 'V' },
+    ],
+    streak: '7 matchs invaincus à domicile',
+    friendlies: [
+      { opponent: 'Colombie', score: '1-1', date: 'mars 2026' },
+      { opponent: 'Japon', score: '2-1', date: 'mars 2026' },
+    ],
+    watch: ['Christian Pulisic', 'Weston McKennie', 'Gio Reyna', 'Folarin Balogun'],
+    absentees: [
+      { player: 'Sergiño Dest', reason: 'Blessure (genou)' },
+      { player: 'Tyler Adams', reason: 'Blessure (ischio)' },
+    ],
+    history: 'Co-organisateur 2026. Meilleur résultat : demi-finale 1930.',
+    best: 'Christian Pulisic', capped: 'Cobi Jones (164 sél.)', scorer: 'Landon Donovan (57 buts)',
+  },
+  Mexico: {
+    fifa_rank: 14,
+    best_wc: 'Quarts de finale (1970, 1986)',
+    wc_2018: 'Premier tour',
+    wc_2022: 'Premier tour',
+    qualification: 'Qualifié automatiquement — co-organisateur CdM 2026.',
+    qualification_matches: [
+      { opponent: 'États-Unis', score: '0-2', venue: 'D' },
+      { opponent: 'Canada', score: '1-1', venue: 'N' },
+    ],
+    streak: '2 défaites consécutives en amical',
+    friendlies: [
+      { opponent: 'Allemagne', score: '2-2', date: 'mars 2026' },
+    ],
+    watch: ['Hirving Lozano', 'Edson Álvarez', 'Raúl Jiménez', 'Santiago Giménez'],
+    absentees: [
+      { player: 'Héctor Herrera', reason: 'Choix du sélectionneur' },
+      { player: 'Jesús Corona', reason: 'Blessure (cheville)' },
+    ],
+    history: 'Co-organisateur 2026. 17 participations consécutives en CdM.',
+    best: 'Hirving Lozano', capped: 'Claudio Suárez (177 sél.)', scorer: 'Javier Hernández (52 buts)',
+  },
+  Canada: {
+    fifa_rank: 27,
+    best_wc: 'Premier tour (1986)',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Premier tour',
+    qualification: 'Qualifié automatiquement — co-organisateur CdM 2026.',
+    qualification_matches: [
+      { opponent: 'Mexique', score: '1-1', venue: 'N' },
+      { opponent: 'Jamaïque', score: '4-1', venue: 'V' },
+    ],
+    streak: '3 victoires consécutives',
+    friendlies: [
+      { opponent: 'Australie', score: '2-1', date: 'mars 2026' },
+    ],
+    watch: ['Alphonso Davies', 'Jonathan David', 'Tajon Buchanan'],
+    absentees: [
+      { player: 'Steven Vitória', reason: 'Blessure (musculaire)' },
+    ],
+    history: 'Co-organisateur 2026. Nation en forte progression depuis 2022.',
+    best: 'Alphonso Davies', capped: 'Julian de Guzman (84 sél.)', scorer: 'Cyle Larin (29 buts)',
+  },
+  Morocco: {
+    fifa_rank: 13,
+    best_wc: 'Demi-finale (2022)',
+    wc_2018: 'Premier tour',
+    wc_2022: 'Demi-finale (4e)',
+    qualification: 'Qualifié CAF — vainqueur du groupe E.',
+    qualification_matches: [
+      { opponent: 'Tanzanie', score: '2-0', venue: 'V' },
+      { opponent: 'Zambie', score: '1-0', venue: 'V' },
+    ],
+    streak: '10 matchs sans défaite',
+    friendlies: [
+      { opponent: 'Angola', score: '2-0', date: 'mars 2026' },
+    ],
+    watch: ['Achraf Hakimi', 'Youssef En-Nesyri', 'Sofyan Amrabat', 'Brahim Díaz'],
+    absentees: [
+      { player: 'Romain Saïss', reason: 'Retraite internationale' },
+    ],
+    history: 'Première nation africaine en demi-finale de CdM (2022).',
+    best: 'Achraf Hakimi', capped: 'Noureddine Naybet (115 sél.)', scorer: 'Hicham Zerouali (18 buts)',
+  },
+  Japan: {
+    fifa_rank: 18,
+    best_wc: 'Huitième de finale (2002, 2010, 2022)',
+    wc_2018: 'Huitième de finale',
+    wc_2022: 'Huitième de finale (victoire vs Allemagne & Espagne)',
+    qualification: 'Qualifié AFC — 2e du groupe C.',
+    qualification_matches: [
+      { opponent: 'Chine', score: '2-0', venue: 'V' },
+      { opponent: 'Australie', score: '1-0', venue: 'V' },
+    ],
+    streak: '5 matchs sans défaite',
+    friendlies: [
+      { opponent: 'États-Unis', score: '1-2', date: 'mars 2026' },
+    ],
+    watch: ['Takefusa Kubo', 'Kaoru Mitoma', 'Wataru Endo', 'Daizen Maeda'],
+    absentees: [
+      { player: 'Takehiro Tomiyasu', reason: 'Blessure (genou)' },
+    ],
+    history: 'Référence asiatique, victoire historique sur l\'Allemagne en 2022.',
+    best: 'Takefusa Kubo', capped: 'Yasuhito Endo (152 sél.)', scorer: 'Kunishige Kamamoto (75 buts)',
+  },
+  Portugal: {
+    fifa_rank: 6,
+    best_wc: '3e (1966)',
+    wc_2018: 'Huitième de finale',
+    wc_2022: 'Quarts de finale',
+    qualification: 'Qualifié UEFA — via barrages.',
+    qualification_matches: [
+      { opponent: 'Suède', score: '3-2', venue: 'V' },
+      { opponent: 'Slovénie', score: '1-0', venue: 'V' },
+    ],
+    streak: '4 victoires consécutives',
+    friendlies: [
+      { opponent: 'Argentine', score: '0-1', date: 'mars 2026' },
+    ],
+    watch: ['Cristiano Ronaldo', 'Bernardo Silva', 'Rafael Leão', 'Bruno Fernandes'],
+    absentees: [
+      { player: 'Diogo Jota', reason: 'Blessure (genou) — forfait' },
+      { player: 'Pepe', reason: 'Retraite internationale' },
+    ],
+    history: 'Champion d\'Europe 2016. Ronaldo en quête d\'un premier titre mondial.',
+    best: 'Cristiano Ronaldo', capped: 'Cristiano Ronaldo (214 sél.)', scorer: 'Cristiano Ronaldo (135 buts)',
+  },
+  Netherlands: {
+    fifa_rank: 7,
+    best_wc: 'Finaliste (1974, 1978, 2010)',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Quarts de finale',
+    qualification: 'Qualifié UEFA — 2e du groupe G.',
+    qualification_matches: [
+      { opponent: 'France', score: '1-2', venue: 'D' },
+      { opponent: 'Grèce', score: '3-0', venue: 'V' },
+    ],
+    streak: '3 matchs sans défaite',
+    friendlies: [
+      { opponent: 'Écosse', score: '4-0', date: 'mars 2026' },
+    ],
+    watch: ['Virgil van Dijk', 'Memphis Depay', 'Cody Gakpo', 'Frenkie de Jong'],
+    absentees: [
+      { player: 'Matthijs de Ligt', reason: 'Blessure (musculaire)' },
+    ],
+    history: 'Football total, 3 finales perdues. Toujours candidat.',
+    best: 'Virgil van Dijk', capped: 'Edwin van der Sar (130 sél.)', scorer: 'Robin van Persie (50 buts)',
+  },
+  Croatia: {
+    fifa_rank: 10,
+    best_wc: 'Finaliste (2018)',
+    wc_2018: 'Finaliste',
+    wc_2022: '3e place',
+    qualification: 'Qualifié UEFA — 2e du groupe L.',
+    qualification_matches: [
+      { opponent: 'Turquie', score: '2-1', venue: 'V' },
+      { opponent: 'Pays de Galles', score: '1-1', venue: 'N' },
+    ],
+    streak: '6 matchs invaincus',
+    friendlies: [
+      { opponent: 'Autriche', score: '1-0', date: 'mars 2026' },
+    ],
+    watch: ['Luka Modrić', 'Mateo Kovačić', 'Josko Gvardiol', 'Bruno Petković'],
+    absentees: [
+      { player: 'Ivan Perišić', reason: 'Blessure (croisé)' },
+    ],
+    history: 'Finaliste 2018, 3e en 2022. Petite nation, grands résultats.',
+    best: 'Luka Modrić', capped: 'Luka Modrić (180 sél.)', scorer: 'Davor Šuker (45 buts)',
+  },
+  Belgium: {
+    fifa_rank: 8,
+    best_wc: '3e (2018)',
+    wc_2018: '3e place',
+    wc_2022: 'Huitième de finale',
+    qualification: 'Qualifié UEFA — 1er du groupe F.',
+    qualification_matches: [
+      { opponent: 'Autriche', score: '2-0', venue: 'V' },
+      { opponent: 'Suède', score: '3-0', venue: 'V' },
+    ],
+    streak: '2 défaites récentes en amical',
+    friendlies: [
+      { opponent: 'France', score: '1-2', date: 'mars 2026' },
+    ],
+    watch: ['Kevin De Bruyne', 'Romelu Lukaku', 'Amadou Onana', 'Jérémy Doku'],
+    absentees: [
+      { player: 'Thibaut Courtois', reason: 'Blessure (genou) — incertain' },
+      { player: 'Eden Hazard', reason: 'Retraite internationale' },
+    ],
+    history: 'Génération dorée, 3e en 2018. Dernière danse pour plusieurs cadres.',
+    best: 'Kevin De Bruyne', capped: 'Jan Vertonghen (150 sél.)', scorer: 'Romelu Lukaku (85 buts)',
+  },
+  Switzerland: {
+    fifa_rank: 19,
+    best_wc: 'Quarts de finale (1934, 38, 54)',
+    wc_2018: 'Huitième de finale',
+    wc_2022: 'Huitième de finale',
+    qualification: 'Qualifié UEFA — 2e du groupe B.',
+    qualification_matches: [
+      { opponent: 'Italie', score: '2-0', venue: 'V' },
+      { opponent: 'Israël', score: '3-0', venue: 'V' },
+    ],
+    streak: '4 matchs sans défaite',
+    friendlies: [
+      { opponent: 'Chili', score: '1-1', date: 'mars 2026' },
+    ],
+    watch: ['Granit Xhaka', 'Xherdan Shaqiri', 'Breel Embolo', 'Manuel Akanji'],
+    absentees: [],
+    history: 'Régulier en phase finale depuis 2006.',
+    best: 'Granit Xhaka', capped: 'Heinz Hermann (117 sél.)', scorer: 'Alexander Frei (42 buts)',
+  },
+  'South Korea': {
+    fifa_rank: 23,
+    best_wc: '4e (2002)',
+    wc_2018: 'Premier tour',
+    wc_2022: 'Huitième de finale',
+    qualification: 'Qualifié AFC — 1er du groupe B.',
+    qualification_matches: [
+      { opponent: 'Chine', score: '3-0', venue: 'V' },
+      { opponent: 'Thaïlande', score: '2-0', venue: 'V' },
+    ],
+    streak: '3 victoires consécutives',
+    friendlies: [
+      { opponent: 'Brésil', score: '0-1', date: 'mars 2026' },
+    ],
+    watch: ['Son Heung-min', 'Lee Kang-in', 'Kim Min-jae', 'Hwang Hee-chan'],
+    absentees: [
+      { player: 'Kim Min-jae', reason: 'Blessure (mollet) — incertain' },
+    ],
+    history: 'Demi-finaliste 2002 à domicile avec Bielsa puis Klinsmann.',
+    best: 'Son Heung-min', capped: 'Cha Bum-kun (136 sél.)', scorer: 'Cha Bum-kun (58 buts)',
+  },
+  Senegal: {
+    fifa_rank: 17,
+    best_wc: 'Quarts de finale (2002)',
+    wc_2018: 'Premier tour',
+    wc_2022: 'Huitième de finale',
+    qualification: 'Qualifié CAF — 1er du groupe B.',
+    qualification_matches: [
+      { opponent: 'Congo', score: '2-0', venue: 'V' },
+      { opponent: 'Mauritanie', score: '3-1', venue: 'V' },
+    ],
+    streak: '5 matchs sans défaite',
+    friendlies: [
+      { opponent: 'Algérie', score: '1-0', date: 'mars 2026' },
+    ],
+    watch: ['Sadio Mané', 'Kalidou Koulibaly', 'Ismaïla Sarr', 'Nicolas Jackson'],
+    absentees: [
+      { player: 'Édouard Mendy', reason: 'Choix du sélectionneur' },
+    ],
+    history: 'Champion d\'Afrique 2021. Lions de la Teranga.',
+    best: 'Sadio Mané', capped: 'Sadio Mané (99 sél.)', scorer: 'Sadio Mané (34 buts)',
+  },
+  Colombia: {
+    fifa_rank: 12,
+    best_wc: 'Quarts de finale (2014)',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Non qualifié',
+    qualification: 'Qualifié CONMEBOL — barrage puis qualification directe.',
+    qualification_matches: [
+      { opponent: 'Paraguay', score: '2-0', venue: 'V' },
+      { opponent: 'Pérou', score: '1-0', venue: 'V' },
+    ],
+    streak: '8 matchs invaincus',
+    friendlies: [
+      { opponent: 'États-Unis', score: '1-1', date: 'mars 2026' },
+    ],
+    watch: ['James Rodríguez', 'Luis Díaz', 'Rafael Santos Borré', 'Jhon Durán'],
+    absentees: [],
+    history: 'Retour en CdM après absence 2018/2022. James, star de 2014.',
+    best: 'James Rodríguez', capped: 'Carlos Valderrama (111 sél.)', scorer: 'Radamel Falcao (36 buts)',
+  },
+  Uruguay: {
+    fifa_rank: 9,
+    best_wc: 'Champion (1930, 1950)',
+    wc_2018: 'Quarts de finale',
+    wc_2022: 'Premier tour',
+    qualification: 'Qualifié CONMEBOL — 5e place.',
+    qualification_matches: [
+      { opponent: 'Brésil', score: '1-2', venue: 'D' },
+      { opponent: 'Argentine', score: '0-1', venue: 'D' },
+    ],
+    streak: '2 défaites consécutives',
+    friendlies: [
+      { opponent: 'France', score: '0-2', date: 'mars 2026' },
+    ],
+    watch: ['Federico Valverde', 'Darwin Núñez', 'Ronald Araújo', 'Facundo Pellistri'],
+    absentees: [
+      { player: 'Luis Suárez', reason: 'Âge / rotation' },
+    ],
+    history: '2 titres mondiaux, nation historique du football.',
+    best: 'Federico Valverde', capped: 'Diego Godín (160 sél.)', scorer: 'Luis Suárez (68 buts)',
+  },
+  Scotland: {
+    fifa_rank: 36,
+    best_wc: 'Premier tour (1954, 78, 82, 86, 90, 98)',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Non qualifié',
+    qualification: 'Qualifié UEFA — via barrages (victoire vs Israël).',
+    qualification_matches: [
+      { opponent: 'Israël', score: '5-2 agg.', venue: 'V' },
+      { opponent: 'Norvège', score: '1-1', venue: 'N' },
+    ],
+    streak: '3 matchs sans défaite',
+    friendlies: [
+      { opponent: 'Pays-Bas', score: '0-4', date: 'mars 2026' },
+    ],
+    watch: ['Andy Robertson', 'Scott McTominay', 'John McGinn', 'Che Adams'],
+    absentees: [
+      { player: 'Kieran Tierney', reason: 'Blessure (ischio)' },
+    ],
+    history: 'Retour en CdM après 28 ans d\'absence. Nation fondatrice du football.',
+    best: 'Andy Robertson', capped: 'Kenny Dalglish (102 sél.)', scorer: 'Denis Law (30 buts)',
+  },
+  Norway: {
+    fifa_rank: 45,
+    best_wc: 'Huitième de finale (1998)',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Non qualifié',
+    qualification: 'Qualifié UEFA — 2e du groupe I.',
+    qualification_matches: [
+      { opponent: 'Espagne', score: '0-1', venue: 'D' },
+      { opponent: 'Géorgie', score: '3-1', venue: 'V' },
+    ],
+    streak: '4 victoires consécutives',
+    friendlies: [
+      { opponent: 'Portugal', score: '1-2', date: 'mars 2026' },
+    ],
+    watch: ['Erling Haaland', 'Martin Ødegaard', 'Alexander Sørloth', 'Sander Berge'],
+    absentees: [],
+    history: 'Retour historique avec Haaland et Ødegaard.',
+    best: 'Erling Haaland', capped: 'John Arne Riise (110 sél.)', scorer: 'Jørgen Juve (33 buts)',
+  },
+  'Bosnia-Herzegovina': {
+    fifa_rank: 75,
+    best_wc: 'Premier tour (2014)',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Non qualifié',
+    qualification: 'Qualifié UEFA — via barrages.',
+    qualification_matches: [
+      { opponent: 'Ukraine', score: '2-1', venue: 'V' },
+      { opponent: 'Israël', score: '1-0', venue: 'V' },
+    ],
+    streak: '2 victoires consécutives',
+    friendlies: [
+      { opponent: 'Slovénie', score: '1-1', date: 'mars 2026' },
+    ],
+    watch: ['Edin Džeko', 'Miralem Pjanić', 'Ermedin Demirović'],
+    absentees: [
+      { player: 'Sead Kolašinac', reason: 'Blessure (mollet)' },
+    ],
+    history: '2e participation après 2014. Džeko emblématique.',
+    best: 'Edin Džeko', capped: 'Edin Džeko (129 sél.)', scorer: 'Edin Džeko (63 buts)',
+  },
+  Czechia: {
+    fifa_rank: 39,
+    best_wc: 'Finaliste (1962, Tchécoslovaquie)',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Non qualifié',
+    qualification: 'Qualifié UEFA — via barrages.',
+    qualification_matches: [
+      { opponent: 'Suède', score: '2-0', venue: 'V' },
+      { opponent: 'Irlande du Nord', score: '1-0', venue: 'V' },
+    ],
+    streak: '5 matchs sans défaite',
+    friendlies: [
+      { opponent: 'Autriche', score: '2-1', date: 'mars 2026' },
+    ],
+    watch: ['Tomáš Souček', 'Patrik Schick', 'Antonín Barák'],
+    absentees: [],
+    history: 'Retour après longue absence. Schick buteur en Euro 2020.',
+    best: 'Tomáš Souček', capped: 'Karel Poborský (118 sél.)', scorer: 'Jan Koller (55 buts)',
+  },
+  Haiti: {
+    fifa_rank: 87,
+    best_wc: 'Premier tour (1974)',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Non qualifié',
+    qualification: 'Qualifié CONCACAF — barrage intercontinental.',
+    qualification_matches: [
+      { opponent: 'Costa Rica', score: '2-1', venue: 'V' },
+      { opponent: 'Trinité-et-Tobago', score: '3-0', venue: 'V' },
+    ],
+    streak: '3 victoires consécutives',
+    friendlies: [
+      { opponent: 'Guatemala', score: '1-0', date: 'mars 2026' },
+    ],
+    watch: ['Duckens Nazon', 'Frantzdy Pierrot', 'Bryan Alceus'],
+    absentees: [],
+    history: 'Retour historique 52 ans après 1974.',
+    best: 'Duckens Nazon', capped: 'Frantz Mathieu (78 sél.)', scorer: 'Emmanuel Sanon (47 buts)',
+  },
+  'Cape Verde Islands': {
+    fifa_rank: 65,
+    best_wc: 'Première participation',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Non qualifié',
+    qualification: 'Qualifié CAF — 1er du groupe A.',
+    qualification_matches: [
+      { opponent: 'Maurice', score: '2-0', venue: 'V' },
+      { opponent: 'Eswatini', score: '1-0', venue: 'V' },
+    ],
+    streak: '6 matchs invaincus',
+    friendlies: [
+      { opponent: 'Guinée-Bissau', score: '2-1', date: 'mars 2026' },
+    ],
+    watch: ['Ryan Mendes', 'Jovane Cabral', 'Bebé'],
+    absentees: [],
+    history: 'Première qualification en Coupe du Monde.',
+    best: 'Ryan Mendes', capped: 'Ryan Mendes (67 sél.)', scorer: 'Ryan Mendes (22 buts)',
+  },
+  Curaçao: {
+    fifa_rank: 88,
+    best_wc: 'Première participation',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Non qualifié',
+    qualification: 'Qualifié CONCACAF — surprise du barrage.',
+    qualification_matches: [
+      { opponent: 'Jamaïque', score: '2-1', venue: 'V' },
+      { opponent: 'Panama', score: '1-1', venue: 'N' },
+    ],
+    streak: '2 matchs invaincus',
+    friendlies: [
+      { opponent: 'Suriname', score: '3-0', date: 'mars 2026' },
+    ],
+    watch: ['Leandro Bacuna', 'Rangelo Janga', 'Cuco Martina'],
+    absentees: [],
+    history: 'Première qualification historique pour la petite île caribéenne.',
+    best: 'Leandro Bacuna', capped: 'Leandro Bacuna (45 sél.)', scorer: 'Leandro Bacuna (18 buts)',
+  },
+  Qatar: {
+    fifa_rank: 35,
+    best_wc: 'Premier tour (2022 — hôte)',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Premier tour (hôte)',
+    qualification: 'Qualifié AFC — 2e du groupe A.',
+    qualification_matches: [
+      { opponent: 'Oman', score: '2-0', venue: 'V' },
+      { opponent: 'Koweït', score: '1-0', venue: 'V' },
+    ],
+    streak: '4 victoires consécutives',
+    friendlies: [
+      { opponent: 'Irak', score: '1-1', date: 'mars 2026' },
+    ],
+    watch: ['Akram Afif', 'Almoez Ali', 'Hassan Al-Haydos'],
+    absentees: [],
+    history: 'Hôte 2022, éliminé au 1er tour. Progression constante.',
+    best: 'Akram Afif', capped: 'Hasan Al-Haydos (174 sél.)', scorer: 'Almoez Ali (70 buts)',
+  },
+  'South Africa': {
+    fifa_rank: 59,
+    best_wc: 'Premier tour (2002, 2010)',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Non qualifié',
+    qualification: 'Qualifié CAF — 1er du groupe C.',
+    qualification_matches: [
+      { opponent: 'Nigeria', score: '2-1', venue: 'V' },
+      { opponent: 'Zimbabwe', score: '3-0', venue: 'V' },
+    ],
+    streak: '5 matchs sans défaite',
+    friendlies: [
+      { opponent: 'Namibie', score: '2-0', date: 'mars 2026' },
+    ],
+    watch: ['Percy Tau', 'Themba Zwane', 'Sphephelo Sithole'],
+    absentees: [],
+    history: 'Hôte 2010. Bafana Bafana de retour.',
+    best: 'Percy Tau', capped: 'Aaron Mokoena (107 sél.)', scorer: 'Benni McCarthy (31 buts)',
+  },
+  Tunisia: {
+    fifa_rank: 41,
+    best_wc: 'Premier tour (1978, 98, 2002, 06, 18, 22)',
+    wc_2018: 'Premier tour',
+    wc_2022: 'Premier tour (victoire vs France)',
+    qualification: 'Qualifié CAF — 1er du groupe H.',
+    qualification_matches: [
+      { opponent: 'Guinée équatoriale', score: '1-0', venue: 'V' },
+      { opponent: 'Namibie', score: '2-0', venue: 'V' },
+    ],
+    streak: '3 victoires consécutives',
+    friendlies: [
+      { opponent: 'Cameroun', score: '0-0', date: 'mars 2026' },
+    ],
+    watch: ['Youssef Msakni', 'Wahbi Khazri', 'Aïssa Laïdouni'],
+    absentees: [],
+    history: '6e participation. Victoire mémorable vs France en 2022.',
+    best: 'Youssef Msakni', capped: 'Sadok Sassi (111 sél.)', scorer: 'Issam Jebali (21 buts)',
+  },
+  'New Zealand': {
+    fifa_rank: 93,
+    best_wc: 'Premier tour (1982, 2010)',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Non qualifié',
+    qualification: 'Qualifié OFC — vainqueur du tournoi.',
+    qualification_matches: [
+      { opponent: 'Vanuatu', score: '4-0', venue: 'V' },
+      { opponent: 'Fidji', score: '2-0', venue: 'V' },
+    ],
+    streak: '7 victoires consécutives',
+    friendlies: [
+      { opponent: 'Canada', score: '1-2', date: 'mars 2026' },
+    ],
+    watch: ['Chris Wood', 'Winston Reid', 'Marco Rojas'],
+    absentees: [],
+    history: 'All Whites qualifiés via l\'OFC.',
+    best: 'Chris Wood', capped: 'Ivan Vicelich (88 sél.)', scorer: 'Vaughan Coveny (28 buts)',
+  },
+  Jordan: {
+    fifa_rank: 70,
+    best_wc: 'Première participation',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Non qualifié',
+    qualification: 'Qualifié AFC — barrage intercontinental vs Bolivie.',
+    qualification_matches: [
+      { opponent: 'Bolivie', score: '1-0', venue: 'V' },
+      { opponent: 'Irak', score: '2-1', venue: 'V' },
+    ],
+    streak: '4 matchs invaincus',
+    friendlies: [
+      { opponent: 'Syrie', score: '3-0', date: 'mars 2026' },
+    ],
+    watch: ['Musa Al-Taamari', 'Yazan Al-Naimat', 'Hassan Abdel-Fattah'],
+    absentees: [],
+    history: 'Finaliste de la Coupe d\'Asie 2023, première CdM.',
+    best: 'Musa Al-Taamari', capped: "Baha' Faisal (97 sél.)", scorer: 'Ahmad Hayel (20 buts)',
+  },
+  Uzbekistan: {
+    fifa_rank: 62,
+    best_wc: 'Première participation',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Non qualifié',
+    qualification: 'Qualifié AFC — barrage intercontinental.',
+    qualification_matches: [
+      { opponent: 'Emirats arabes unis', score: '2-1', venue: 'V' },
+      { opponent: 'Qatar', score: '1-1', venue: 'N' },
+    ],
+    streak: '3 matchs sans défaite',
+    friendlies: [
+      { opponent: 'Kirghizistan', score: '2-0', date: 'mars 2026' },
+    ],
+    watch: ['Eldor Shomurodov', 'Jaloliddin Masharipov', 'Odil Ahmedov'],
+    absentees: [],
+    history: 'Première qualification historique pour l\'Asie centrale.',
+    best: 'Eldor Shomurodov', capped: 'Server Djeparov (108 sél.)', scorer: 'Server Djeparov (27 buts)',
+  },
+  Paraguay: {
+    fifa_rank: 52,
+    best_wc: 'Quarts de finale (2010)',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Non qualifié',
+    qualification: 'Qualifié CONMEBOL — 6e place.',
+    qualification_matches: [
+      { opponent: 'Colombie', score: '0-2', venue: 'D' },
+      { opponent: 'Venezuela', score: '2-1', venue: 'V' },
+    ],
+    streak: '2 victoires consécutives',
+    friendlies: [
+      { opponent: 'Chili', score: '1-0', date: 'mars 2026' },
+    ],
+    watch: ['Miguel Almirón', 'Gustavo Gómez', 'Julio Enciso'],
+    absentees: [],
+    history: 'Retour en CdM après 12 ans.',
+    best: 'Miguel Almirón', capped: 'Paulo da Silva (148 sél.)', scorer: 'Roque Santa Cruz (32 buts)',
+  },
+  Egypt: {
+    fifa_rank: 33,
+    best_wc: 'Premier tour (1990, 2018, 2022)',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Premier tour',
+    qualification: 'Qualifié CAF — barrage vs Sénégal (2022 cycle).',
+    qualification_matches: [
+      { opponent: 'Sénégal', score: '1-0', venue: 'V' },
+      { opponent: 'Guinée', score: '2-0', venue: 'V' },
+    ],
+    streak: '5 matchs sans défaite',
+    friendlies: [
+      { opponent: 'Maroc', score: '0-1', date: 'mars 2026' },
+    ],
+    watch: ['Mohamed Salah', 'Omar Marmoush', 'Mohamed Elneny'],
+    absentees: [
+      { player: 'Mohamed Elneny', reason: 'Blessure (cheville) — incertain' },
+    ],
+    history: '7 titres africains. Salah moteur de l\'équipe.',
+    best: 'Mohamed Salah', capped: 'Ahmed Hassan (184 sél.)', scorer: 'Hossam Hassan (69 buts)',
+  },
+  Algeria: {
+    fifa_rank: 43,
+    best_wc: 'Huitième de finale (2014)',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Non qualifié',
+    qualification: 'Qualifié CAF — 1er du groupe G.',
+    qualification_matches: [
+      { opponent: 'Mozambique', score: '3-0', venue: 'V' },
+      { opponent: 'Botswana', score: '2-0', venue: 'V' },
+    ],
+    streak: '6 victoires consécutives',
+    friendlies: [
+      { opponent: 'Sénégal', score: '0-1', date: 'mars 2026' },
+    ],
+    watch: ['Riyad Mahrez', 'Ismaël Bennacer', 'Youcef Atal'],
+    absentees: [],
+    history: 'Champion d\'Afrique 2019. Retour après absence 2022.',
+    best: 'Riyad Mahrez', capped: 'Lakhdar Belloumi (102 sél.)', scorer: 'Abdelhafid Tasfaout (36 buts)',
+  },
+  Australia: {
+    fifa_rank: 24,
+    best_wc: 'Huitième de finale (2006, 2022)',
+    wc_2018: 'Premier tour',
+    wc_2022: 'Huitième de finale (victoire vs Argentine en poule)',
+    qualification: 'Qualifié AFC — 3e du groupe B.',
+    qualification_matches: [
+      { opponent: 'Japon', score: '0-1', venue: 'D' },
+      { opponent: 'Indonésie', score: '2-0', venue: 'V' },
+    ],
+    streak: '2 matchs sans défaite',
+    friendlies: [
+      { opponent: 'Canada', score: '1-2', date: 'mars 2026' },
+    ],
+    watch: ['Mathew Ryan', 'Harry Souttar', 'Mitchell Duke', 'Craig Goodwin'],
+    absentees: [],
+    history: 'Socceroos réguliers en CdM, huitième en 2022.',
+    best: 'Mathew Ryan', capped: 'Mark Schwarzer (109 sél.)', scorer: 'Tim Cahill (50 buts)',
+  },
+  'Saudi Arabia': {
+    fifa_rank: 56,
+    best_wc: 'Huitième de finale (1994)',
+    wc_2018: 'Premier tour',
+    wc_2022: 'Premier tour (victoire vs Argentine)',
+    qualification: 'Qualifié AFC — 1er du groupe C.',
+    qualification_matches: [
+      { opponent: 'Oman', score: '1-0', venue: 'V' },
+      { opponent: 'Chine', score: '2-0', venue: 'V' },
+    ],
+    streak: '4 victoires consécutives',
+    friendlies: [
+      { opponent: 'Irak', score: '2-1', date: 'mars 2026' },
+    ],
+    watch: ['Salem Al-Dawsari', 'Saud Abdulhamid', 'Firas Al-Buraikan'],
+    absentees: [],
+    history: 'Victoire historique vs Argentine en 2022.',
+    best: 'Salem Al-Dawsari', capped: 'Mohamed Al-Deayea (181 sél.)', scorer: 'Majed Abdullah (72 buts)',
+  },
+  'Ivory Coast': {
+    fifa_rank: 38,
+    best_wc: 'Premier tour (2006, 2010, 2014)',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Premier tour',
+    qualification: 'Qualifié CAF — 1er du groupe F.',
+    qualification_matches: [
+      { opponent: 'Gabon', score: '2-0', venue: 'V' },
+      { opponent: 'Kenya', score: '3-0', venue: 'V' },
+    ],
+    streak: '5 matchs sans défaite',
+    friendlies: [
+      { opponent: 'Cameroun', score: '1-1', date: 'mars 2026' },
+    ],
+    watch: ['Sébastien Haller', 'Franck Kessié', 'Nicolas Pépé'],
+    absentees: [],
+    history: 'Champion d\'Afrique 2023. Éléphants de retour.',
+    best: 'Sébastien Haller', capped: 'Didier Zokora (105 sél.)', scorer: 'Didier Drogba (65 buts)',
+  },
+  Ghana: {
+    fifa_rank: 68,
+    best_wc: 'Quarts de finale (2010)',
+    wc_2018: 'Premier tour',
+    wc_2022: 'Premier tour',
+    qualification: 'Qualifié CAF — barrage vs Nigeria.',
+    qualification_matches: [
+      { opponent: 'Nigeria', score: '2-1 agg.', venue: 'V' },
+      { opponent: 'Mali', score: '1-0', venue: 'V' },
+    ],
+    streak: '3 victoires consécutives',
+    friendlies: [
+      { opponent: 'Niger', score: '2-0', date: 'mars 2026' },
+    ],
+    watch: ['Mohammed Kudus', 'Thomas Partey', 'Inaki Williams'],
+    absentees: [],
+    history: 'Quarts 2010 avec la main de Suárez. Black Stars.',
+    best: 'Mohammed Kudus', capped: 'Asamoah Gyan (109 sél.)', scorer: 'Asamoah Gyan (51 buts)',
+  },
+  Ecuador: {
+    fifa_rank: 31,
+    best_wc: 'Huitième de finale (2006)',
+    wc_2018: 'Non qualifié',
+    wc_2022: 'Premier tour',
+    qualification: 'Qualifié CONMEBOL — 4e place.',
+    qualification_matches: [
+      { opponent: 'Uruguay', score: '2-0', venue: 'V' },
+      { opponent: 'Bolivie', score: '3-0', venue: 'V' },
+    ],
+    streak: '2 victoires consécutives',
+    friendlies: [
+      { opponent: 'Costa Rica', score: '1-1', date: 'mars 2026' },
+    ],
+    watch: ['Moisés Caicedo', 'Enner Valencia', 'Pervis Estupiñán'],
+    absentees: [],
+    history: 'La Tri, régulière en CONMEBOL.',
+    best: 'Moisés Caicedo', capped: 'Iván Hurtado (168 sél.)', scorer: 'Agustín Delgado (31 buts)',
+  },
+  Iran: {
+    fifa_rank: 21,
+    best_wc: 'Premier tour (1978, 98, 2006, 2014, 2018, 2022)',
+    wc_2018: 'Premier tour',
+    wc_2022: 'Premier tour',
+    qualification: 'Qualifié AFC — 1er du groupe E.',
+    qualification_matches: [
+      { opponent: 'Émirats arabes unis', score: '2-0', venue: 'V' },
+      { opponent: 'Corée du Sud', score: '1-1', venue: 'N' },
+    ],
+    streak: '4 matchs invaincus',
+    friendlies: [
+      { opponent: 'Russie', score: '1-0', date: 'mars 2026' },
+    ],
+    watch: ['Mehdi Taremi', 'Sardar Azmoun', 'Alireza Jahanbakhsh'],
+    absentees: [],
+    history: 'Team Melli, 6 participations consécutives.',
+    best: 'Mehdi Taremi', capped: 'Javad Nekounam (151 sél.)', scorer: 'Ali Daei (109 buts)',
+  },
+  Panama: {
+    fifa_rank: 42,
+    best_wc: 'Premier tour (2018)',
+    wc_2018: 'Premier tour',
+    wc_2022: 'Non qualifié',
+    qualification: 'Qualifié CONCACAF — 3e place.',
+    qualification_matches: [
+      { opponent: 'Costa Rica', score: '2-1', venue: 'V' },
+      { opponent: 'Honduras', score: '1-0', venue: 'V' },
+    ],
+    streak: '3 matchs sans défaite',
+    friendlies: [
+      { opponent: 'Guatemala', score: '2-0', date: 'mars 2026' },
+    ],
+    watch: ['Aníbal Godoy', 'José Fajardo', 'Adalberto Carrasquilla'],
+    absentees: [],
+    history: '2e participation après 2018.',
+    best: 'Aníbal Godoy', capped: 'Román Torres (141 sél.)', scorer: 'Blas Pérez (43 buts)',
+  },
+};
+
+function resolveTeamKey (name) {
+  if (!name) return null;
+  const direct = TEAMS[name];
+  if (direct) return name;
+  const alias = ALIASES[name.toLowerCase()];
+  if (alias && TEAMS[alias]) return alias;
+  const found = Object.keys(TEAMS).find(k => k.toLowerCase() === name.toLowerCase());
+  return found || null;
+}
+
+function getStaticIntel (teamName) {
+  const key = resolveTeamKey(teamName);
+  if (!key) return null;
+  return { ...TEAMS[key], teamName: key, found: true };
+}
+
+module.exports = { ALIASES, TEAMS, resolveTeamKey, getStaticIntel };
