@@ -61,6 +61,53 @@ openssl rand -hex 32
 npx web-push generate-vapid-keys
 ```
 
+## Plan Free vs Starter
+
+| | **Free** | **Starter** (`render.yaml` actuel) |
+|---|----------|-------------------------------------|
+| Mise en veille | Oui, ~15 min sans trafic | Non, toujours allumé |
+| Premier chargement | Lent (cold start 30–60 s) | Rapide |
+| Cron scores / notifs | Peu fiable (service endormi) | Fiable |
+| Disque persistant | Non | Oui |
+
+**Recommandation CdM** : rester en **Starter** pendant la compétition (cron + push + SQLite). Le keep-alive ci-dessous ne sert **que** si vous repassez en Free.
+
+## Garder Render allumé (plan Free uniquement)
+
+Un script **sur Render** ne peut pas se réveiller lui-même. Il faut un ping **externe** :
+
+### Option 1 — GitHub Actions (recommandé)
+
+1. GitHub → repo → **Settings** → **Secrets and variables** → **Actions**
+2. Secret `RENDER_APP_URL` = `https://votre-app.onrender.com`
+3. Le workflow `.github/workflows/keepalive.yml` ping `/api/health` toutes les 14 min
+
+Pour désactiver : supprimez le secret ou désactivez le workflow dans l’onglet **Actions**.
+
+### Option 2 — cron-job.org (sans GitHub)
+
+1. Compte sur [cron-job.org](https://cron-job.org)
+2. Job GET toutes les 14 min : `https://votre-app.onrender.com/api/health`
+
+### Option 3 — Script local (PC allumé)
+
+```bash
+# Une fois
+RENDER_APP_URL=https://xxx.onrender.com node scripts/keepalive.js
+
+# Planificateur Windows (toutes les 14 min) — PowerShell admin
+# schtasks /create /tn "RenderKeepalive" /tr "node F:\...\scripts\keepalive.js" /sc minute /mo 14
+```
+
+### Est-ce une bonne idée ?
+
+- **Starter** : inutile, vous payez déjà pour du 24/7.
+- **Free** : acceptable pour un petit projet perso / test, mais :
+  - consomme vos **750 h gratuites / mois** (≈ 1 service H24),
+  - les **crons internes** (scores, coup d’envoi) restent aléatoires si le ping et le cron ne coïncident pas,
+  - Render peut limiter les abus du tier gratuit.
+- **Pour la CdM avec des joueurs** : préférez **Starter** plutôt qu’un keep-alive bricolé.
+
 ## Points importants
 
 - **Disque persistant** : sans lui, SQLite est effacée à chaque redéploiement.

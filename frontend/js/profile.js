@@ -1,5 +1,13 @@
 'use strict';
 
+function groupDisplayLabel (groupName) {
+  return `Groupe ${String(groupName).replace(/^GROUP_/i, '')}`;
+}
+
+function specialPickKey (groupName) {
+  return `${groupName}_2ND`;
+}
+
 async function renderProfile () {
   const el = document.getElementById('view-profile');
   if (!el) return;
@@ -18,6 +26,10 @@ async function renderProfile () {
   const locked = !!profile.picks_locked;
   const teams = profile.teams || [];
   const scorers = profile.scorers || [];
+  const groupOptions = profile.group_options || {};
+  const specialPicks = profile.special_picks || {};
+  const groupNames = Object.keys(groupOptions).sort((a, b) => a.localeCompare(b, 'fr'));
+  const badges = profile.badges || [];
 
   const AVATARS = [
     '⚽', '🏆', '🥅', '🎯', '🔥', '⚡', '💥', '🌟', '👑', '🦁',
@@ -44,7 +56,28 @@ async function renderProfile () {
       <div>
         <p class="font-semibold text-white text-lg">${profile.pseudo}</p>
         <p class="text-xs text-muted">${profile.role}</p>
+        ${profile.bonus_special
+        ? `<p class="text-xs text-pink-400 mt-1">🎲 Paris spéciaux : +${profile.bonus_special} pts</p>`
+        : ''}
       </div>
+    </div>
+
+    <div class="bg-surface border border-border rounded-xl p-4 mb-4">
+      <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Badges</p>
+      ${badges.length
+        ? `<div class="flex flex-wrap gap-2">${badges.map(b => `
+            <span class="profile-badge" title="${escHtml(b.label)}">${b.emoji} ${escHtml(b.label)}</span>
+          `).join('')}</div>`
+        : '<p class="text-xs text-muted">Jouez quelques matchs pour débloquer des badges automatiques.</p>'}
+    </div>
+
+    <div class="bg-surface border border-border rounded-xl p-4 mb-4">
+      <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-1">Partager le classement</p>
+      <p class="text-xs text-muted mb-3">Copie un résumé texte du classement du groupe actuel.</p>
+      <button id="btn-export-standings" type="button"
+              class="w-full text-xs bg-slate-800 border border-slate-600 text-slate-200 py-2 rounded-lg hover:bg-slate-700 transition">
+        📋 Copier le classement
+      </button>
     </div>
 
     <div class="bg-surface border border-border rounded-xl p-4 mb-4">
@@ -106,6 +139,30 @@ async function renderProfile () {
         : ''}
     </div>
 
+    ${groupNames.length ? `
+    <div class="bg-surface border border-border rounded-xl p-4 mb-4">
+      <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-1">Paris spéciaux</p>
+      <p class="text-xs text-muted mb-3">2e place par groupe — +2 pts par bonne réponse (définie par l'admin après la phase de groupes).</p>
+      ${locked ? '<p class="text-amber-400/90 text-xs mb-3">🔒 Verrouillé</p>' : ''}
+      <div class="space-y-3">
+        ${groupNames.map(g => {
+          const key = specialPickKey(g);
+          const opts = groupOptions[g] || [];
+          const val = specialPicks[key] || '';
+          return `
+            <div>
+              <label class="block text-xs text-muted mb-1">${groupDisplayLabel(g)} — 2e place</label>
+              <select class="input-field special-pick-select w-full text-sm" data-group="${attrEsc(g)}" ${locked ? 'disabled' : ''}>
+                <option value="">— Choisir —</option>
+                ${opts.map(t => `
+                  <option value="${attrEsc(t)}" ${t === val ? 'selected' : ''}>${escHtml(t)}</option>
+                `).join('')}
+              </select>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>` : ''}
+
     <button id="btn-save-profile"
             class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition">
       ✓ Sauvegarder
@@ -142,6 +199,20 @@ async function renderProfile () {
     updatePreviewColor(selectedColor);
   });
 
+  document.getElementById('btn-export-standings')?.addEventListener('click', async () => {
+    try {
+      const { text } = await API.exportStandings();
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        toast('Classement copié dans le presse-papier', 'success');
+      } else {
+        prompt('Copiez le classement :', text);
+      }
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  });
+
   document.getElementById('btn-save-profile').addEventListener('click', async () => {
     const btn = document.getElementById('btn-save-profile');
     btn.disabled = true;
@@ -149,10 +220,22 @@ async function renderProfile () {
       const pickWinner = document.getElementById('pick-winner')?.value || null;
       const pickScorer = document.getElementById('pick-top-scorer')?.value.trim() || null;
 
+      const special_picks = {};
+      if (!locked) {
+        el.querySelectorAll('.special-pick-select').forEach(sel => {
+          const g = sel.dataset.group;
+          if (g && sel.value) special_picks[specialPickKey(g)] = sel.value;
+        });
+      }
+
       await API.updateProfile({
         avatar: selectedAvatar,
         color: selectedColor,
-        ...(!locked ? { pick_winner: pickWinner, pick_top_scorer: pickScorer } : {}),
+        ...(!locked ? {
+          pick_winner: pickWinner,
+          pick_top_scorer: pickScorer,
+          special_picks,
+        } : {}),
       });
       state.user.avatar = selectedAvatar;
       state.user.color = selectedColor;

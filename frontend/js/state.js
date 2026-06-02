@@ -13,4 +13,7 @@ const state = {
   chatPollTimer: null,
   statsCharts: [],
   standingsTab: 'table',
+  livePollTimer: null,
+  liveDetailMatchId: null,
+  poolBadges: {},
 };

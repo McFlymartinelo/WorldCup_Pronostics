@@ -63,6 +63,19 @@ async function openChatFromNotif (poolId) {
   navigateTo('chat');
 }
 
+function stopLivePoll () {
+  if (state.livePollTimer) {
+    clearInterval(state.livePollTimer);
+    state.livePollTimer = null;
+  }
+  state.liveDetailMatchId = null;
+}
+
+function startLivePoll (callback, intervalMs = 30000) {
+  stopLivePoll();
+  state.livePollTimer = setInterval(callback, intervalMs);
+}
+
 function stopChatPoll () {
   if (state.chatPollTimer) {
     clearInterval(state.chatPollTimer);

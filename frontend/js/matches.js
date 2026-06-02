@@ -1,14 +1,20 @@
 'use strict';
 
-async function renderMatches () {
+async function renderMatches (silent = false) {
   const el = document.getElementById('view-matches');
-  el.innerHTML = `<p class="text-muted text-sm text-center py-8">Chargement…</p>`;
+  if (!silent) {
+    el.innerHTML = `<p class="text-muted text-sm text-center py-8">Chargement…</p>`;
+  }
   try {
     state.matches = await API.getMatches();
   } catch (e) {
-    el.innerHTML = `<p class="text-red-400 text-sm text-center py-8">${e.message}</p>`;
+    if (!silent) el.innerHTML = `<p class="text-red-400 text-sm text-center py-8">${e.message}</p>`;
     return;
   }
+
+  const hasLive = state.matches.some(m =>
+    m.status === 'LIVE' || m.status === 'IN_PLAY' || m.status === 'PAUSED',
+  );
 
   const groups = {};
   for (const m of state.matches) {
@@ -20,6 +26,9 @@ async function renderMatches () {
   }
 
   let html = '';
+  if (hasLive) {
+    html += `<p class="text-xs text-amber-400 mb-3 flex items-center gap-2"><span class="badge-live inline-block w-2 h-2 rounded-full"></span> Mode live — actualisation auto</p>`;
+  }
   for (const [label, matches] of Object.entries(groups)) {
     html += `<p class="text-xs font-semibold text-muted uppercase tracking-wider mb-3 mt-5 first:mt-0">${label}</p>`;
     for (const m of matches) html += matchCard(m);
@@ -52,6 +61,15 @@ async function renderMatches () {
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     });
   });
+
+  if (hasLive && state.currentView === 'matches') {
+    startLivePoll(async () => {
+      if (state.currentView !== 'matches') { stopLivePoll(); return; }
+      await renderMatches(true);
+    }, 30000);
+  } else if (state.currentView === 'matches') {
+    stopLivePoll();
+  }
 }
 
 function matchCard (m) {
@@ -270,4 +288,16 @@ async function renderDetail (matchId) {
     </div>`;
 
   document.getElementById('btn-back').addEventListener('click', () => navigateTo('matches'));
+
+  const isLive = m.status === 'LIVE' || m.status === 'IN_PLAY' || m.status === 'PAUSED';
+  if (isLive && state.currentView === 'detail') {
+    state.liveDetailMatchId = matchId;
+    startLivePoll(async () => {
+      if (state.currentView !== 'detail' || state.liveDetailMatchId !== matchId) {
+        stopLivePoll();
+        return;
+      }
+      await renderDetail(matchId);
+    }, 30000);
+  }
 }

@@ -9,6 +9,15 @@ const {
   getTournamentTeams,
 } = require('../services/competitionPicks');
 const { getMemberPicks, updateMemberPicks } = require('../services/poolService');
+const {
+  getGroupList,
+  getTeamsInGroup,
+  getMemberSpecialPicks,
+  updateMemberSpecialPicks,
+  computeSpecialBonus,
+  groupKey,
+} = require('../services/specialPicksService');
+const { getUserBadges } = require('../services/badgesService');
 
 const router = express.Router();
 
@@ -28,6 +37,14 @@ async function profilePayload (userId, poolId) {
 
   const bonus_winner = meta?.winner_team && pickWinner === meta.winner_team ? 5 : 0;
   const bonus_scorer = meta?.top_scorer && pickTopScorer === meta.top_scorer ? 3 : 0;
+  const special = await computeSpecialBonus(userId, poolId);
+  const badges = await getUserBadges(poolId, userId);
+  const groups = await getGroupList();
+  const special_picks = await getMemberSpecialPicks(userId, poolId);
+  const group_options = {};
+  for (const g of groups) {
+    group_options[g] = await getTeamsInGroup(g);
+  }
 
   const teams = await getTournamentTeams();
   let scorers = [];
@@ -43,6 +60,8 @@ async function profilePayload (userId, poolId) {
     pool_id: poolId,
     pick_winner: pickWinner,
     pick_top_scorer: pickTopScorer,
+    special_picks,
+    group_options,
     teams,
     scorers,
     picks_locked: locked,
@@ -50,6 +69,8 @@ async function profilePayload (userId, poolId) {
     actual_top_scorer: meta?.top_scorer || null,
     bonus_winner,
     bonus_scorer,
+    bonus_special: special.points,
+    badges,
   };
 }
 
@@ -70,7 +91,7 @@ router.get('/', requireAuth, requirePool, async (req, res) => {
 });
 
 router.patch('/', requireAuth, requirePool, async (req, res) => {
-  const { avatar, color, pick_winner, pick_top_scorer } = req.body;
+  const { avatar, color, pick_winner, pick_top_scorer, special_picks } = req.body;
 
   if (avatar && [...avatar].length > 4) {
     return res.status(400).json({ error: 'Avatar invalide' });
@@ -81,10 +102,11 @@ router.patch('/', requireAuth, requirePool, async (req, res) => {
 
   const wantsPickUpdate =
     pick_winner !== undefined || pick_top_scorer !== undefined;
+  const wantsSpecialUpdate = special_picks !== undefined;
 
-  if (wantsPickUpdate && await isPicksLocked()) {
+  if ((wantsPickUpdate || wantsSpecialUpdate) && await isPicksLocked()) {
     return res.status(403).json({
-      error: 'Les pronostics vainqueur et meilleur buteur sont verrouillés (le tournoi a commencé)',
+      error: 'Les pronostics bonus sont verrouillés (le tournoi a commencé)',
     });
   }
 
@@ -119,13 +141,26 @@ router.patch('/', requireAuth, requirePool, async (req, res) => {
 
   if (!await isPicksLocked()) {
     await updateMemberPicks(req.user.id, req.poolId, pick_winner, pick_top_scorer);
-  } else if (wantsPickUpdate) {
+    if (wantsSpecialUpdate && special_picks && typeof special_picks === 'object') {
+      const groups = await getGroupList();
+      const cleaned = {};
+      for (const g of groups) {
+        const key = groupKey(g);
+        const val = special_picks[key];
+        if (val) {
+          const allowed = await getTeamsInGroup(g);
+          if (allowed.includes(val)) cleaned[key] = val;
+        }
+      }
+      await updateMemberSpecialPicks(req.user.id, req.poolId, cleaned);
+    }
+  } else if (wantsPickUpdate || wantsSpecialUpdate) {
     return res.status(403).json({
-      error: 'Les pronostics vainqueur et meilleur buteur sont verrouillés (le tournoi a commencé)',
+      error: 'Les pronostics bonus sont verrouillés (le tournoi a commencé)',
     });
   }
 
-  if (!userSets.length && !wantsPickUpdate) {
+  if (!userSets.length && !wantsPickUpdate && !wantsSpecialUpdate) {
     return res.status(400).json({ error: 'Aucune modification' });
   }
 

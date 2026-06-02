@@ -42,6 +42,50 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
   res.json({ success: true });
 });
 
+// PATCH /api/admin/users/:id/password — réinitialiser le mot de passe
+router.patch('/users/:id/password', requireAdmin, async (req, res) => {
+  const { password } = req.body;
+  if (!password || String(password).length < 4) {
+    return res.status(400).json({ error: 'Mot de passe requis (4 caractères min.)' });
+  }
+  const target = await get('SELECT id, role FROM users WHERE id = ?', [req.params.id]);
+  if (!target) return res.status(404).json({ error: 'Utilisateur introuvable' });
+  if (target.role === 'admin') {
+    return res.status(403).json({ error: 'Impossible de réinitialiser un admin' });
+  }
+  const hash = bcrypt.hashSync(password, 10);
+  await run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, target.id]);
+  res.json({ success: true });
+});
+
+// GET /api/admin/group-results
+router.get('/group-results', requireAdmin, async (_req, res) => {
+  const { getGroupResults, getGroupList, getTeamsInGroup } = require('../services/specialPicksService');
+  const groups = await getGroupList();
+  const results = await getGroupResults();
+  const options = {};
+  for (const g of groups) options[g] = await getTeamsInGroup(g);
+  res.json({ groups, results, options });
+});
+
+// PATCH /api/admin/group-results
+router.patch('/group-results', requireAdmin, async (req, res) => {
+  const { group_name, position, team_name } = req.body;
+  const pos = parseInt(position, 10);
+  if (!group_name || ![1, 2].includes(pos)) {
+    return res.status(400).json({ error: 'group_name et position (1 ou 2) requis' });
+  }
+  const { setGroupResult, getTeamsInGroup } = require('../services/specialPicksService');
+  if (team_name) {
+    const allowed = await getTeamsInGroup(group_name);
+    if (!allowed.includes(team_name)) {
+      return res.status(400).json({ error: 'Équipe invalide pour ce groupe' });
+    }
+  }
+  await setGroupResult(group_name, pos, team_name || null);
+  res.json({ success: true });
+});
+
 // POST /api/admin/sync/fixtures
 router.post('/sync/fixtures', requireAdmin, async (_req, res) => {
   try { await syncFixtures(); res.json({ success: true }); }

@@ -7,28 +7,121 @@ function destroyStatsCharts () {
   state.statsCharts = [];
 }
 
-function standingsTableHtml (rows) {
+function badgesInlineHtml (badges) {
+  if (!badges?.length) return '';
+  return badges.map(b =>
+    `<span class="player-badge" title="${escHtml(b.label)}">${b.emoji}</span>`,
+  ).join('');
+}
+
+function standingsTableHtml (rows, badgesMap = {}) {
   const medals = ['🥇', '🥈', '🥉'];
-  return rows.map((u, i) => `
-    <div class="flex items-center gap-3 bg-surface border border-border ${i === 0 ? 'rank-1' : ''} rounded-xl px-4 py-3 mb-2">
-      <span class="text-base w-6 text-center">${medals[i] ?? `<span class="text-muted text-sm">${i + 1}</span>`}</span>
-      <span class="flex-1 text-sm flex items-center gap-2">
+  return rows.map((u, i) => {
+    const badges = badgesMap[u.id] || [];
+    const canCompare = u.id && u.id !== state.user?.id;
+    return `
+    <div class="standings-row flex items-center gap-2 bg-surface border border-border ${i === 0 ? 'rank-1' : ''} rounded-xl px-3 py-3 mb-2">
+      <span class="text-base w-6 text-center flex-shrink-0">${medals[i] ?? `<span class="text-muted text-sm">${i + 1}</span>`}</span>
+      <span class="flex-1 text-sm flex items-center gap-1.5 min-w-0">
         <span class="w-7 h-7 rounded-full flex items-center justify-center text-sm flex-shrink-0"
               style="background:${u.color || '#3b82f6'}22; border:1px solid ${u.color || '#3b82f6'}">
           ${u.avatar || '⚽'}
         </span>
-        <span class="${u.pseudo === state.user?.pseudo ? 'text-white font-semibold' : 'text-slate-300'}">
-          ${escHtml(u.pseudo)}
+        <span class="truncate ${u.pseudo === state.user?.pseudo ? 'text-white font-semibold' : 'text-slate-300'}">
+          ${canCompare
+        ? `<button type="button" class="btn-compare-pseudo hover:text-blue-300 transition text-left truncate" data-user-id="${u.id}">${escHtml(u.pseudo)}</button>`
+        : escHtml(u.pseudo)}
         </span>
+        <span class="player-badges flex gap-0.5 flex-shrink-0">${badgesInlineHtml(badges)}</span>
       </span>
-      <span class="text-blue-400 font-bold text-sm">${u.total_points} pts</span>
-      <span class="text-xs text-muted ml-1">
+      <span class="text-blue-400 font-bold text-sm flex-shrink-0">${u.total_points} pts</span>
+      <span class="text-xs text-muted flex-shrink-0 hidden sm:inline">
         <span class="text-green-400">${u.exact_scores}✓</span>
         <span class="text-purple-400 ml-1">${u.good_results}↗</span>
         ${u.bonus_winner ? '<span class="text-amber-400 ml-1" title="Vainqueur">🏆</span>' : ''}
         ${u.bonus_scorer ? '<span class="text-yellow-400" title="Meilleur buteur">⚽</span>' : ''}
+        ${u.bonus_special ? `<span class="text-pink-400 ml-1" title="Paris spéciaux +${u.bonus_special}">🎲</span>` : ''}
       </span>
-    </div>`).join('');
+      ${canCompare
+      ? `<button type="button" class="btn-compare flex-shrink-0 text-xs bg-blue-950 border border-blue-800 text-blue-300 px-2 py-1 rounded-lg hover:bg-blue-900 transition" data-user-id="${u.id}" title="Comparer">⚔️</button>`
+      : ''}
+    </div>`;
+  }).join('');
+}
+
+function closeCompareModal () {
+  document.getElementById('compare-overlay')?.remove();
+}
+
+async function openCompareModal (opponentId) {
+  closeCompareModal();
+  let data;
+  try {
+    data = await API.comparePlayer(opponentId);
+  } catch (e) {
+    toast(e.message, 'error');
+    return;
+  }
+
+  const { player_a: a, player_b: b, head_to_head: h2h } = data;
+  const lead = a.total_points > b.total_points ? 'a'
+    : b.total_points > a.total_points ? 'b' : 'tie';
+
+  const matchRows = (h2h.matches || []).slice(-8).reverse().map(m => {
+    const aWin = m.a_pts > m.b_pts;
+    const bWin = m.b_pts > m.a_pts;
+    return `
+      <div class="compare-match-row">
+        <span class="text-xs text-muted truncate flex-1">${shortName(m.home_team)} – ${shortName(m.away_team)}</span>
+        <span class="text-xs font-mono">${m.home_score}–${m.away_score}</span>
+        <span class="text-xs ${aWin ? 'text-green-400' : bWin ? 'text-red-400' : 'text-muted'}">${m.a_pts}–${m.b_pts}</span>
+      </div>`;
+  }).join('') || '<p class="text-xs text-muted text-center py-2">Aucun match commun terminé.</p>';
+
+  const overlay = document.createElement('div');
+  overlay.id = 'compare-overlay';
+  overlay.className = 'compare-overlay';
+  overlay.innerHTML = `
+    <div class="compare-modal" role="dialog" aria-labelledby="compare-title">
+      <div class="flex items-center justify-between mb-4">
+        <p id="compare-title" class="text-sm font-semibold text-white">Comparateur 1v1</p>
+        <button type="button" id="compare-close" class="text-muted hover:text-white text-lg leading-none">&times;</button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="compare-player-card ${lead === 'a' ? 'leading' : ''}">
+          <span class="text-2xl">${a.avatar || '⚽'}</span>
+          <p class="text-sm font-semibold text-white truncate">${escHtml(a.pseudo)}</p>
+          <p class="text-lg font-bold text-blue-400">${a.total_points} pts</p>
+          <p class="text-[10px] text-muted">${a.exact_scores} exact · ${a.good_results} bon</p>
+          <div class="player-badges mt-1">${badgesInlineHtml(a.badges)}</div>
+        </div>
+        <div class="compare-player-card ${lead === 'b' ? 'leading' : ''}">
+          <span class="text-2xl">${b.avatar || '⚽'}</span>
+          <p class="text-sm font-semibold text-white truncate">${escHtml(b.pseudo)}</p>
+          <p class="text-lg font-bold text-blue-400">${b.total_points} pts</p>
+          <p class="text-[10px] text-muted">${b.exact_scores} exact · ${b.good_results} bon</p>
+          <div class="player-badges mt-1">${badgesInlineHtml(b.badges)}</div>
+        </div>
+      </div>
+
+      <div class="bg-bg border border-border rounded-xl p-3 mb-3 text-center">
+        <p class="text-xs text-muted mb-1">Face-à-face (matchs communs)</p>
+        <p class="text-sm">
+          <span class="text-green-400 font-bold">${h2h.a_wins}</span>
+          <span class="text-muted mx-2">–</span>
+          <span class="text-red-400 font-bold">${h2h.b_wins}</span>
+          ${h2h.ties ? `<span class="text-muted text-xs ml-2">(${h2h.ties} nul${h2h.ties > 1 ? 's' : ''})</span>` : ''}
+        </p>
+      </div>
+
+      <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Derniers matchs communs</p>
+      <div class="compare-matches-list">${matchRows}</div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeCompareModal(); });
+  document.getElementById('compare-close').addEventListener('click', closeCompareModal);
 }
 
 function renderStatsCharts (stats) {
@@ -231,20 +324,24 @@ async function renderStandings () {
   el.innerHTML = `<p class="text-muted text-sm text-center py-8">Chargement…</p>`;
 
   let stats;
+  let badgesMap = {};
   try {
-    const [standingsResult, statsResult] = await Promise.all([
+    const [standingsResult, statsResult, badgesResult] = await Promise.all([
       API.getStandings(),
       API.getAdvancedStats(),
+      API.getBadges().catch(() => ({})),
     ]);
     state.standings = Array.isArray(standingsResult) ? standingsResult : [];
     stats = statsResult;
+    badgesMap = badgesResult || {};
+    state.poolBadges = badgesMap;
   } catch (e) {
     el.innerHTML = `<p class="text-red-400 text-sm">${escHtml(e.message)}</p>`;
     return;
   }
 
   const tab = state.standingsTab || 'table';
-  const rows = standingsTableHtml(state.standings);
+  const rows = standingsTableHtml(state.standings, badgesMap);
 
   el.innerHTML = `
     <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-1">Classement</p>
@@ -264,7 +361,9 @@ async function renderStandings () {
           <span><span class="text-purple-400">↗</span> Bon résultat (1 pt)</span>
           <span><span class="text-amber-400">🏆</span> Vainqueur (5 pts)</span>
           <span><span class="text-yellow-400">⚽</span> Meilleur buteur (3 pts)</span>
+          <span><span class="text-pink-400">🎲</span> 2e place par groupe (+2 pts)</span>
         </div>
+        <p class="text-[10px] text-muted mt-2">Cliquez sur un joueur ou ⚔️ pour le comparateur 1v1.</p>
       </div>
     </div>
 
@@ -277,6 +376,10 @@ async function renderStandings () {
       state.standingsTab = btn.dataset.standingsTab;
       renderStandings();
     });
+  });
+
+  el.querySelectorAll('.btn-compare, .btn-compare-pseudo').forEach(btn => {
+    btn.addEventListener('click', () => openCompareModal(parseInt(btn.dataset.userId, 10)));
   });
 
   if (tab === 'stats') {

@@ -2,6 +2,7 @@
 
 function navigateTo (view, params = {}) {
   if (view !== 'chat') stopChatPoll();
+  if (view !== 'matches' && view !== 'detail') stopLivePoll();
   if (view !== 'standings') destroyStatsCharts();
 
   ['matches', 'detail', 'standings', 'admin', 'tournament', 'profile', 'chat'].forEach(v => {

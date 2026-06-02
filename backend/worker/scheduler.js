@@ -1,8 +1,49 @@
 'use strict';
 const cron = require('node-cron');
 const { syncFixtures, syncScores } = require('../services/footballApi');
-const { sendToAll } = require('../services/pushService');
+const { sendToAll, sendToUser } = require('../services/pushService');
 const { all, run }  = require('../database/db');
+
+const REMINDER_MINUTES = parseInt(process.env.PREDICTION_REMINDER_MINUTES || '120', 10);
+
+async function sendPredictionReminders () {
+  const margin = 5;
+  const minM = REMINDER_MINUTES - margin;
+  const maxM = REMINDER_MINUTES + margin;
+
+  const upcoming = await all(`
+    SELECT id, home_team, away_team FROM matches
+    WHERE status IN ('SCHEDULED', 'TIMED')
+      AND match_date BETWEEN datetime('now', '+${minM} minutes') AND datetime('now', '+${maxM} minutes')
+  `);
+
+  for (const m of upcoming) {
+    const missing = await all(`
+      SELECT pm.user_id, pm.pool_id, p.name AS pool_name
+      FROM pool_members pm
+      JOIN pools p ON p.id = pm.pool_id
+      JOIN users u ON u.id = pm.user_id
+      LEFT JOIN predictions pr
+             ON pr.user_id = pm.user_id AND pr.match_id = ? AND pr.pool_id = pm.pool_id
+      LEFT JOIN prediction_reminders r
+             ON r.user_id = pm.user_id AND r.match_id = ? AND r.pool_id = pm.pool_id
+      WHERE u.role = 'player' AND pr.id IS NULL AND r.user_id IS NULL
+    `, [m.id, m.id]);
+
+    for (const row of missing) {
+      await sendToUser(
+        row.user_id,
+        '⏰ Pronostic manquant',
+        `${m.home_team} vs ${m.away_team} dans ~${Math.round(REMINDER_MINUTES / 60)} h — groupe « ${row.pool_name} »`,
+        { matchId: m.id, type: 'reminder', poolId: row.pool_id },
+      );
+      await run(
+        'INSERT INTO prediction_reminders (user_id, match_id, pool_id) VALUES (?, ?, ?)',
+        [row.user_id, m.id, row.pool_id],
+      );
+    }
+  }
+}
 
 // Définie en dehors de startScheduler pour pouvoir être exportée
 async function notifyScoreUpdate(match) {
@@ -35,7 +76,7 @@ function startScheduler () {
     catch (e) { console.error('[cron] fixtures error:', e.message); }
   });
 
-  // Notif coup d'envoi toutes les minutes
+  // Notif coup d'envoi + rappels pronos manquants — toutes les minutes
   cron.schedule('* * * * *', async () => {
     try {
       const soon = await all(`
@@ -56,6 +97,8 @@ function startScheduler () {
           WHERE id = ?
         `, [m.id]);
       }
+
+      await sendPredictionReminders();
     } catch (e) {
       console.error('[push cron]', e.message);
     }

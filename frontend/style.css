@@ -409,3 +409,80 @@ select.pick-select option {
   border-color: #854d0e;
   box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.2);
 }
+
+/* ── Badges joueur & comparateur ─────────────────────────────── */
+.player-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  cursor: default;
+}
+.profile-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #1e2535;
+  border: 1px solid #2d3a52;
+  color: #cbd5e1;
+}
+.compare-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.compare-modal {
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #161b27;
+  border: 1px solid #1e2535;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+.compare-player-card {
+  text-align: center;
+  padding: 12px 8px;
+  border-radius: 12px;
+  background: #0f131c;
+  border: 1px solid #1e2535;
+}
+.compare-player-card.leading {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35);
+}
+.compare-matches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.compare-match-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #0f131c;
+  border: 1px solid #1e2535;
+}
+.btn-compare-pseudo {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}

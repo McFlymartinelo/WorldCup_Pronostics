@@ -129,6 +129,9 @@ async function migrateToPools () {
 
   const { migrateChatTables } = require('./chatService');
   await migrateChatTables();
+
+  const { migrateSpecialPicks } = require('./specialPicksService');
+  await migrateSpecialPicks();
 }
 
 async function addUserToPool (userId, poolId) {

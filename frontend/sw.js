@@ -56,7 +56,7 @@ self.addEventListener('notificationclick', event => {
     return;
   }
 
-  if (data.matchId && (data.type === 'score' || data.type === 'kickoff')) {
+  if (data.matchId && (data.type === 'score' || data.type === 'kickoff' || data.type === 'reminder')) {
     event.waitUntil(openMatch(data.matchId));
     return;
   }

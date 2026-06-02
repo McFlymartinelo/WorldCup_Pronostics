@@ -76,6 +76,12 @@ const API = (() => {
     // Classement
     getStandings:   ()          => req('GET', '/standings', null, { poolScoped: true }),
     getAdvancedStats: ()        => req('GET', '/stats/advanced', null, { poolScoped: true }),
+    getBadges:        ()         => req('GET', '/stats/badges', null, { poolScoped: true }),
+    comparePlayer:    (id)       => req('GET', `/stats/compare/${id}`, null, { poolScoped: true }),
+    exportStandings:  ()         => req('GET', '/stats/export', null, { poolScoped: true }),
+    getGroupResults:  ()         => req('GET', '/admin/group-results'),
+    setGroupResult:   (data)     => req('PATCH', '/admin/group-results', data),
+    resetUserPassword:(id, password) => req('PATCH', `/admin/users/${id}/password`, { password }),
 
     // Admin
     getUsers:       ()                  => req('GET',    '/admin/users'),
