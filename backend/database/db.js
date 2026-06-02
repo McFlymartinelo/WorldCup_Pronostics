@@ -142,6 +142,7 @@ async function initDB () {
   try { await run(`ALTER TABLE users ADD COLUMN color  TEXT DEFAULT '#3b82f6'`); } catch {}
   try { await run(`ALTER TABLE users ADD COLUMN pick_winner TEXT`); } catch {}
   try { await run(`ALTER TABLE users ADD COLUMN pick_top_scorer TEXT`); } catch {}
+  try { await run(`ALTER TABLE matches ADD COLUMN kickoff_notified_at DATETIME`); } catch {}
 
   const { migrateToPools } = require('../services/poolService');
   await migrateToPools();

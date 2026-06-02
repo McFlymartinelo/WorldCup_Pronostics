@@ -41,6 +41,7 @@ function startScheduler () {
       const soon = await all(`
         SELECT * FROM matches
         WHERE status IN ('SCHEDULED', 'TIMED')
+          AND kickoff_notified_at IS NULL
           AND match_date BETWEEN datetime('now') AND datetime('now', '+5 minutes')
       `);
       for (const m of soon) {
@@ -49,7 +50,11 @@ function startScheduler () {
           `${m.home_team} vs ${m.away_team} commence dans 5 minutes !`,
           { matchId: m.id, type: 'kickoff' }
         );
-        await run(`UPDATE matches SET status = 'LIVE' WHERE id = ?`, [m.id]);
+        await run(`
+          UPDATE matches
+          SET kickoff_notified_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `, [m.id]);
       }
     } catch (e) {
       console.error('[push cron]', e.message);

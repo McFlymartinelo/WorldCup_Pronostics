@@ -5,6 +5,22 @@ const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
+const STAGE_ALIASES = {
+  LAST_32: 'ROUND_OF_32',
+  LAST_16: 'ROUND_OF_16',
+  ROUND_OF_32: 'ROUND_OF_32',
+  ROUND_OF_16: 'ROUND_OF_16',
+  QUARTER_FINALS: 'QUARTER_FINALS',
+  SEMI_FINALS: 'SEMI_FINALS',
+  THIRD_PLACE: 'THIRD_PLACE',
+  FINAL: 'FINAL',
+};
+
+function normalizeStage (stage) {
+  if (!stage || stage === 'GROUP_STAGE') return null;
+  return STAGE_ALIASES[stage] || stage;
+}
+
 // GET /api/tournament
 router.get('/', requireAuth, async (_req, res) => {
   try {
@@ -15,21 +31,24 @@ router.get('/', requireAuth, async (_req, res) => {
     // Groupes
     const groups = {};
     const knockout = {
-      ROUND_OF_32:    [],
-      ROUND_OF_16:    [],
+      ROUND_OF_32: [],
+      ROUND_OF_16: [],
       QUARTER_FINALS: [],
-      SEMI_FINALS:    [],
-      THIRD_PLACE:    [],
-      FINAL:          [],
+      SEMI_FINALS: [],
+      THIRD_PLACE: [],
+      FINAL: [],
     };
 
     for (const m of matches) {
       if (m.group_name) {
         if (!groups[m.group_name]) groups[m.group_name] = { matches: [], standings: [] };
         groups[m.group_name].matches.push(m);
-      } else if (knockout[m.stage]) {
-        knockout[m.stage].push(m);
+        continue;
       }
+      const stage = normalizeStage(m.stage);
+      if (!stage) continue;
+      if (!knockout[stage]) knockout[stage] = [];
+      knockout[stage].push(m);
     }
 
     // Calcule les classements de groupes
