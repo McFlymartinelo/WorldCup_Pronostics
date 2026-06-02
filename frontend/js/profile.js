@@ -8,6 +8,111 @@ function specialPickKey (groupName, position) {
   return position === 1 ? `${groupName}_1ST` : `${groupName}_2ND`;
 }
 
+function syncPseudoInUI (updated, avatar) {
+  state.user.pseudo = updated.pseudo;
+  state.user.id = updated.id;
+  const row = state.standings.find(u => u.id === updated.id);
+  if (row) row.pseudo = updated.pseudo;
+  if (state.currentView === 'standings') renderStandings();
+  const header = document.getElementById('header-pseudo');
+  if (header) {
+    header.innerHTML = `
+      <span style="font-size:14px">${avatar || state.user.avatar || '⚽'}</span>
+      <span>${escHtml(updated.pseudo)}</span>`;
+  }
+}
+
+function bindProfilePseudoEdit (container, initialPseudo, avatar) {
+  const btn = container.querySelector('#profile-pseudo-btn');
+  if (!btn) return;
+
+  btn.addEventListener('click', () => {
+    if (container.querySelector('#profile-pseudo-input')) return;
+
+    const original = btn.textContent.trim();
+    const input = document.createElement('input');
+    input.id = 'profile-pseudo-input';
+    input.type = 'text';
+    input.maxLength = 20;
+    input.value = original;
+    input.dataset.originalPseudo = original;
+    input.className = 'input-field text-lg font-semibold w-full';
+    input.autocomplete = 'off';
+    btn.replaceWith(input);
+    input.focus();
+    input.select();
+
+    let saving = false;
+
+    const restoreBtn = (text) => {
+      if (!container.contains(input)) return;
+      input.replaceWith(btn);
+      btn.textContent = text;
+    };
+
+    const finish = async () => {
+      if (saving || !container.contains(input)) return;
+
+      const newPseudo = input.value.trim();
+      if (newPseudo === original) {
+        restoreBtn(original);
+        return;
+      }
+      if (newPseudo.length < 2 || newPseudo.length > 20) {
+        toast('Pseudo : 2 à 20 caractères', 'warning');
+        input.focus();
+        return;
+      }
+
+      saving = true;
+      input.disabled = true;
+      try {
+        const updated = await API.updateProfile({ pseudo: newPseudo });
+        syncPseudoInUI(updated, avatar);
+        restoreBtn(updated.pseudo);
+        toast('Pseudo mis à jour', 'success');
+      } catch (e) {
+        saving = false;
+        input.disabled = false;
+        toast(e.message, 'error');
+        input.focus();
+      }
+    };
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        finish();
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (saving) return;
+        restoreBtn(original);
+      }
+    });
+    input.addEventListener('blur', (e) => {
+      if (e.relatedTarget?.id === 'btn-save-profile') return;
+      window.setTimeout(() => {
+        if (container.contains(input) && document.activeElement !== input) {
+          finish();
+        }
+      }, 0);
+    });
+  });
+}
+
+function readOpenPseudoEdit () {
+  const input = document.getElementById('profile-pseudo-input');
+  if (!input) return null;
+  const trimmed = input.value.trim();
+  const current = (input.dataset.originalPseudo || state.user.pseudo || '').trim();
+  if (!trimmed || trimmed === current) return null;
+  if (trimmed.length < 2 || trimmed.length > 20) {
+    throw new Error('Pseudo : 2 à 20 caractères');
+  }
+  return trimmed;
+}
+
 async function renderProfile () {
   const el = document.getElementById('view-profile');
   if (!el) return;
@@ -22,6 +127,9 @@ async function renderProfile () {
     return;
   }
   if (!profile) return;
+
+  state.user.pseudo = profile.pseudo;
+  state.user.id = profile.id;
 
   const locked = !!profile.picks_locked;
   const teams = profile.teams || [];
@@ -54,8 +162,13 @@ async function renderProfile () {
            style="background: ${profile.color}22; border: 2px solid ${profile.color}">
         <span id="preview-avatar">${profile.avatar || '⚽'}</span>
       </div>
-      <div>
-        <p class="font-semibold text-white text-lg">${profile.pseudo}</p>
+      <div class="flex-1 min-w-0">
+        <button type="button" id="profile-pseudo-btn"
+                class="profile-pseudo-btn font-semibold text-white text-lg truncate text-left hover:text-blue-300 transition"
+                title="Cliquer pour modifier le pseudo">
+          ${escHtml(profile.pseudo)}
+        </button>
+        <p class="text-[10px] text-muted mt-0.5">Clique sur ton pseudo pour le modifier</p>
         <p class="text-xs text-muted">${profile.role}</p>
         ${profile.bonus_special
         ? `<p class="text-xs text-pink-400 mt-1">🎲 Paris spéciaux : +${profile.bonus_special} pts</p>`
@@ -217,6 +330,8 @@ async function renderProfile () {
     updatePreviewColor(selectedColor);
   });
 
+  bindProfilePseudoEdit(el, profile.pseudo, profile.avatar || '⚽');
+
   document.getElementById('btn-export-standings')?.addEventListener('click', async () => {
     try {
       const { text } = await API.exportStandings();
@@ -237,6 +352,14 @@ async function renderProfile () {
     try {
       const pickWinner = document.getElementById('pick-winner')?.value || null;
       const pickScorer = document.getElementById('pick-top-scorer')?.value.trim() || null;
+      let pseudoUpdate = null;
+      try {
+        pseudoUpdate = readOpenPseudoEdit();
+      } catch (pseudoErr) {
+        toast(pseudoErr.message, 'warning');
+        btn.disabled = false;
+        return;
+      }
 
       const special_picks = {};
       el.querySelectorAll('.special-pick-select:not([disabled])').forEach(sel => {
@@ -245,7 +368,8 @@ async function renderProfile () {
         if (g && pos) special_picks[specialPickKey(g, pos)] = sel.value || null;
       });
 
-      await API.updateProfile({
+      const updated = await API.updateProfile({
+        ...(pseudoUpdate ? { pseudo: pseudoUpdate } : {}),
         avatar: selectedAvatar,
         color: selectedColor,
         ...(!locked ? {
@@ -254,10 +378,26 @@ async function renderProfile () {
         } : {}),
         ...(groupNames.length ? { special_picks } : {}),
       });
+
+      if (pseudoUpdate) {
+        syncPseudoInUI(updated, selectedAvatar);
+        const input = document.getElementById('profile-pseudo-input');
+        if (input) {
+          const newBtn = document.createElement('button');
+          newBtn.type = 'button';
+          newBtn.id = 'profile-pseudo-btn';
+          newBtn.className = 'profile-pseudo-btn font-semibold text-white text-lg truncate text-left hover:text-blue-300 transition';
+          newBtn.title = 'Cliquer pour modifier le pseudo';
+          newBtn.textContent = updated.pseudo;
+          input.replaceWith(newBtn);
+          bindProfilePseudoEdit(el, updated.pseudo, selectedAvatar);
+        }
+      }
+
       state.user.avatar = selectedAvatar;
       state.user.color = selectedColor;
 
-      const row = state.standings.find(u => u.pseudo === state.user.pseudo);
+      const row = state.standings.find(u => u.id === (state.user.id || profile.id));
       if (row) {
         row.avatar = selectedAvatar;
         row.color = selectedColor;
@@ -266,7 +406,7 @@ async function renderProfile () {
 
       document.getElementById('header-pseudo').innerHTML = `
         <span style="font-size:14px">${selectedAvatar}</span>
-        <span>${state.user.pseudo}</span>`;
+        <span>${escHtml(state.user.pseudo)}</span>`;
 
       toast('Profil sauvegardé', 'success');
     } catch (e) {

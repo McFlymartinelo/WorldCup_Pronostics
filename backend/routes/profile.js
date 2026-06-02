@@ -95,7 +95,7 @@ router.get('/', requireAuth, requirePool, async (req, res) => {
 });
 
 router.patch('/', requireAuth, requirePool, async (req, res) => {
-  const { avatar, color, pick_winner, pick_top_scorer, special_picks } = req.body;
+  const { avatar, color, pseudo, pick_winner, pick_top_scorer, special_picks } = req.body;
 
   if (avatar && [...avatar].length > 4) {
     return res.status(400).json({ error: 'Avatar invalide' });
@@ -104,9 +104,24 @@ router.patch('/', requireAuth, requirePool, async (req, res) => {
     return res.status(400).json({ error: 'Couleur invalide' });
   }
 
+  const wantsPseudoUpdate = pseudo !== undefined;
   const wantsPickUpdate =
     pick_winner !== undefined || pick_top_scorer !== undefined;
   const wantsSpecialUpdate = special_picks !== undefined;
+
+  if (wantsPseudoUpdate) {
+    const trimmed = String(pseudo).trim();
+    if (trimmed.length < 2 || trimmed.length > 20) {
+      return res.status(400).json({ error: 'Pseudo : 2 à 20 caractères' });
+    }
+    const taken = await get(
+      'SELECT id FROM users WHERE LOWER(pseudo) = LOWER(?) AND id != ?',
+      [trimmed, req.user.id],
+    );
+    if (taken) {
+      return res.status(409).json({ error: 'Ce pseudo est déjà pris' });
+    }
+  }
 
   if (wantsPickUpdate && await isPicksLocked()) {
     return res.status(403).json({
@@ -128,6 +143,12 @@ router.patch('/', requireAuth, requirePool, async (req, res) => {
         }
       }
     }
+  }
+
+  const hasUserUpdate =
+    avatar !== undefined || color !== undefined || wantsPseudoUpdate;
+  if (!hasUserUpdate && !wantsPickUpdate && !wantsSpecialUpdate) {
+    return res.status(400).json({ error: 'Aucune modification' });
   }
 
   if (pick_winner !== undefined && pick_winner !== null && pick_winner !== '') {
@@ -153,6 +174,7 @@ router.patch('/', requireAuth, requirePool, async (req, res) => {
 
   if (avatar !== undefined) { userSets.push('avatar = ?'); userParams.push(avatar || '⚽'); }
   if (color !== undefined)  { userSets.push('color = ?');  userParams.push(color || '#3b82f6'); }
+  if (wantsPseudoUpdate)    { userSets.push('pseudo = ?'); userParams.push(String(pseudo).trim()); }
 
   if (userSets.length) {
     userParams.push(req.user.id);
@@ -183,10 +205,6 @@ router.patch('/', requireAuth, requirePool, async (req, res) => {
       }
     }
     await updateMemberSpecialPicks(req.user.id, req.poolId, merged);
-  }
-
-  if (!userSets.length && !wantsPickUpdate && !wantsSpecialUpdate) {
-    return res.status(400).json({ error: 'Aucune modification' });
   }
 
   const payload = await profilePayload(req.user.id, req.poolId);

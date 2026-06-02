@@ -148,8 +148,10 @@ async function showApp () {
 
   const profile = await API.getProfile().catch(() => null);
   if (profile) {
+    state.user.pseudo = profile.pseudo;
     state.user.avatar = profile.avatar || '⚽';
     state.user.color = profile.color || '#3b82f6';
+    state.user.id = profile.id;
   }
 
   const pseudoEl = document.getElementById('header-pseudo');

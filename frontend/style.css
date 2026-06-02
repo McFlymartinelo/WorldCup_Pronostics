@@ -479,6 +479,7 @@ select.pick-select option {
   background: #0f131c;
   border: 1px solid #1e2535;
 }
+.profile-pseudo-btn,
 .btn-compare-pseudo {
   background: none;
   border: none;
@@ -486,4 +487,6 @@ select.pick-select option {
   font: inherit;
   color: inherit;
   cursor: pointer;
+  max-width: 100%;
 }
+.profile-pseudo-btn { max-width: 100%; }
