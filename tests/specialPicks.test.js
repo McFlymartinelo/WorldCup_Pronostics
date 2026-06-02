@@ -8,6 +8,8 @@ const os = require('os');
 const dbPath = path.join(os.tmpdir(), `wc-special-test-${process.pid}.sqlite`);
 
 function freshDb () {
+  delete process.env.TURSO_DATABASE_URL;
+  delete process.env.TURSO_AUTH_TOKEN;
   for (const mod of [
     '../backend/database/db',
     '../backend/services/poolService',
@@ -47,10 +49,8 @@ describe('specialPicksService', () => {
   });
 
   after(async () => {
-    const { db } = require('../backend/database/db');
-    await new Promise((resolve, reject) => {
-      db.close(err => (err ? reject(err) : resolve()));
-    });
+    const { close } = require('../backend/database/db');
+    await close();
     try {
       if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
     } catch { /* ignore */ }

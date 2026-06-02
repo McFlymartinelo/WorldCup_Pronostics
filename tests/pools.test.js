@@ -8,6 +8,8 @@ const os = require('os');
 const dbPath = path.join(os.tmpdir(), `wc-pools-test-${process.pid}.sqlite`);
 
 function freshDb () {
+  delete process.env.TURSO_DATABASE_URL;
+  delete process.env.TURSO_AUTH_TOKEN;
   delete require.cache[require.resolve('../backend/database/db')];
   delete require.cache[require.resolve('../backend/services/poolService')];
   delete require.cache[require.resolve('../backend/services/footballApi')];
@@ -34,10 +36,8 @@ describe('pools & predictions', () => {
   });
 
   after(async () => {
-    const { db } = require('../backend/database/db');
-    await new Promise((resolve, reject) => {
-      db.close(err => (err ? reject(err) : resolve()));
-    });
+    const { close } = require('../backend/database/db');
+    await close();
     try {
       if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
     } catch { /* Windows peut garder le fichier un instant */ }
