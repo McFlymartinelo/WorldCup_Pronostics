@@ -1,6 +1,7 @@
 'use strict';
 const fetch       = require('node-fetch');
 const { run, get, all } = require('../database/db');
+const { fetchNationalEvents, canonicalName } = require('./teamIntelBuilder');
 
 const BASE = 'https://sports.bzzoiro.com/api/v2';
 const KEY  = process.env.BSD_API_KEY;
@@ -13,36 +14,30 @@ async function apiFetch(path) {
   return res.json();
 }
 
-// Récupère la forme des 5 derniers matchs d'une équipe
+function formFromEvents (matches, teamName) {
+  if (!matches.length) return '';
+  return matches.map(m => {
+    const isHome = canonicalName(m.home_team).toLowerCase() === canonicalName(teamName).toLowerCase();
+    const homeScore = m.home_score;
+    const awayScore = m.away_score;
+    if (homeScore == null || awayScore == null) return '?';
+    const [mine, theirs] = isHome ? [homeScore, awayScore] : [awayScore, homeScore];
+    if (mine > theirs) return 'W';
+    if (mine < theirs) return 'L';
+    return 'D';
+  }).join(' ');
+}
+
 async function fetchTeamForm(teamName) {
   try {
-    const data = await apiFetch(
-      `/events/?team_name=${encodeURIComponent(teamName)}&status=finished&limit=5`
-    );
-    const matches = data.results || [];
-    if (matches.length === 0) return '';
-
-    const form = matches.map(m => {
-      const isHome = m.home_team?.name?.toLowerCase() === teamName.toLowerCase();
-      const homeScore = m.home_score;
-      const awayScore = m.away_score;
-      if (homeScore == null || awayScore == null) return '?';
-      const [mine, theirs] = isHome
-        ? [homeScore, awayScore]
-        : [awayScore, homeScore];
-      if (mine > theirs) return 'W';
-      if (mine < theirs) return 'L';
-      return 'D';
-    }).join(' ');
-
-    return form;
+    const matches = await fetchNationalEvents(teamName, 5);
+    return formFromEvents(matches, teamName);
   } catch (e) {
     console.warn(`[BSD] Forme impossible pour ${teamName}: ${e.message}`);
     return null;
   }
 }
 
-// Sync la forme de toutes les équipes en base
 async function syncAllTeamForms() {
   const teams = await all(`
     SELECT DISTINCT home_team AS team FROM matches
@@ -64,7 +59,6 @@ async function syncAllTeamForms() {
       `, [team, form]);
       console.log(`[BSD] ${team} : ${form || 'aucun match récent'}`);
     }
-    // Petite pause pour ne pas surcharger
     await new Promise(r => setTimeout(r, 200));
   }
 

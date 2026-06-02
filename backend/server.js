@@ -37,6 +37,7 @@ app.get('*', (_req, res) =>
 // ── Boot ──────────────────────────────────────────────────────────────
 initDB();
 startScheduler();
+require('./services/h2hCsvService').preloadH2H();
 
 app.listen(PORT, '0.0.0.0', () =>
   console.log(`✅  Serveur démarré sur le port ${PORT}`)

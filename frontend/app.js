@@ -482,18 +482,6 @@ function teamIntelHtml (summary, teamName) {
           </div>
         </details>` : ''}
 
-      ${summary.absentees?.length ? `
-        <details class="intel-block mb-2">
-          <summary class="text-xs font-semibold text-slate-300 cursor-pointer py-1">🚫 Grands absents</summary>
-          <div class="mt-2 space-y-1">
-            ${summary.absentees.map(a => `
-              <div class="text-xs py-1 border-b border-border last:border-0">
-                <span class="text-red-300 font-medium">${escHtml(a.player)}</span>
-                <span class="text-muted"> — ${escHtml(a.reason)}</span>
-              </div>`).join('')}
-          </div>
-        </details>` : ''}
-
       ${summary.best ? `
         <details class="intel-block">
           <summary class="text-xs font-semibold text-slate-300 cursor-pointer py-1">📚 Fiche historique</summary>
@@ -507,10 +495,11 @@ function teamIntelHtml (summary, teamName) {
 }
 
 function h2hHtml (h2h, home, away) {
-  const meetings = [
-    ...(h2h?.meetings || []),
-    ...(h2h?.live_meetings || []),
-  ];
+  const meetings = h2h?.meetings || [];
+  const total = h2h?.stats?.total;
+  const more = total && total > meetings.length
+    ? `<p class="text-[10px] text-muted italic mb-2">${total - meetings.length} match(s) plus ancien(s) non affiché(s).</p>`
+    : '';
   return `
     <div class="bg-surface border border-border rounded-xl p-4 mb-4">
       <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-2">
@@ -520,7 +509,8 @@ function h2hHtml (h2h, home, away) {
         ${flagEmoji(home)} ${shortName(home)} vs ${flagEmoji(away)} ${shortName(away)}
       </p>
       ${h2h?.summary ? `<p class="text-xs text-slate-300 mb-3">${escHtml(h2h.summary)}</p>` : ''}
-      ${h2h?.stats ? `<p class="text-[10px] text-muted mb-2">${h2h.stats.played} matchs · ${h2h.team_a}: ${h2h.stats.wins_a}V · N: ${h2h.stats.draws} · ${h2h.team_b}: ${h2h.stats.wins_b}V</p>` : ''}
+      ${h2h?.stats ? `<p class="text-[10px] text-muted mb-2">${h2h.stats.played} matchs joués · ${h2h.team_a}: ${h2h.stats.wins_a}V · N: ${h2h.stats.draws} · ${h2h.team_b}: ${h2h.stats.wins_b}V${h2h.stats.upcoming ? ` · ${h2h.stats.upcoming} à venir` : ''}</p>` : ''}
+      ${more}
       ${meetings.length ? `<div class="space-y-1">${meetings.map(mt => `
         <div class="text-xs py-1.5 border-b border-border last:border-0 flex flex-wrap gap-x-2">
           <span class="text-muted">${escHtml(mt.date || '')}</span>
