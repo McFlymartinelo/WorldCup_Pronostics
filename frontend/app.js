@@ -417,7 +417,7 @@ function matchLinesHtml (lines, emptyMsg = '—') {
     const meta = [l.date, l.competition].filter(Boolean).join(' · ');
     return `<div class="flex items-center gap-2 text-xs py-1 border-b border-border last:border-0">
       ${venue}
-      <span class="text-slate-300 flex-1">${escHtml(l.opponent || '?')}</span>
+      <span class="text-slate-300 flex-1">${escHtml(teamName(l.opponent || '?'))}</span>
       <span class="font-semibold text-white">${escHtml(l.score || '')}</span>
       ${meta ? `<span class="text-muted text-[10px]">${escHtml(meta)}</span>` : ''}
     </div>`;
@@ -508,15 +508,15 @@ function h2hHtml (h2h, home, away) {
       <p class="text-xs text-slate-400 mb-3">
         ${flagEmoji(home)} ${shortName(home)} vs ${flagEmoji(away)} ${shortName(away)}
       </p>
-      ${h2h?.summary ? `<p class="text-xs text-slate-300 mb-3">${escHtml(h2h.summary)}</p>` : ''}
-      ${h2h?.stats ? `<p class="text-[10px] text-muted mb-2">${h2h.stats.played} matchs joués · ${h2h.team_a}: ${h2h.stats.wins_a}V · N: ${h2h.stats.draws} · ${h2h.team_b}: ${h2h.stats.wins_b}V${h2h.stats.upcoming ? ` · ${h2h.stats.upcoming} à venir` : ''}</p>` : ''}
+      ${h2h?.summary ? `<p class="text-xs text-slate-300 mb-3">${escHtml(translateTeamsInText(h2h.summary))}</p>` : ''}
+      ${h2h?.stats ? `<p class="text-[10px] text-muted mb-2">${h2h.stats.played} matchs joués · ${teamName(h2h.team_a)}: ${h2h.stats.wins_a}V · N: ${h2h.stats.draws} · ${teamName(h2h.team_b)}: ${h2h.stats.wins_b}V${h2h.stats.upcoming ? ` · ${h2h.stats.upcoming} à venir` : ''}</p>` : ''}
       ${more}
       ${meetings.length ? `<div class="space-y-1">${meetings.map(mt => `
         <div class="text-xs py-1.5 border-b border-border last:border-0 flex flex-wrap gap-x-2">
           <span class="text-muted">${escHtml(mt.date || '')}</span>
           <span class="text-slate-400">${escHtml(mt.comp || '')}</span>
           <span class="font-semibold text-white">${escHtml(mt.score || '')}</span>
-          ${mt.note ? `<span class="text-slate-400">${escHtml(mt.note)}</span>` : ''}
+          ${mt.note ? `<span class="text-slate-400">${escHtml(translateTeamsInText(mt.note))}</span>` : ''}
         </div>`).join('')}</div>`
       : `<p class="text-xs text-muted italic">Aucune confrontation recensée.</p>`}
     </div>`;
