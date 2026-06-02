@@ -38,9 +38,7 @@ async function openMatchFromNotif (matchId) {
     navigateTo('matches');
     return;
   }
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.querySelector('.nav-btn[data-view="matches"]')?.classList.add('active');
-  navigateTo('detail', { matchId });
+  navigateTo('detail', { matchId, returnView: 'matches' });
 }
 
 async function applyPendingNotifNavigation () {
@@ -58,8 +56,6 @@ async function openChatFromNotif (poolId) {
   if (!state.pools.length) await loadPools();
   const pool = state.pools.find(p => p.id === poolId);
   if (pool) await selectPool(poolId);
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.querySelector('.nav-btn[data-view="chat"]')?.classList.add('active');
   navigateTo('chat');
 }
 

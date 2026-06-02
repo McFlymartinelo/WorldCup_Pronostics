@@ -15,5 +15,6 @@ const state = {
   standingsTab: 'table',
   livePollTimer: null,
   liveDetailMatchId: null,
+  detailReturnView: 'matches',
   poolBadges: {},
 };

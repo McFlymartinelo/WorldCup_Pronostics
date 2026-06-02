@@ -124,7 +124,7 @@ async function renderProfile () {
       <select id="pick-winner" class="input-field pick-select w-full mb-3 text-sm" ${locked ? 'disabled' : ''}>
         <option value="">— Choisir une équipe —</option>
         ${teams.map(t => `
-          <option value="${attrEsc(t)}" ${t === (profile.pick_winner || '') ? 'selected' : ''}>${escHtml(t)}</option>
+          <option value="${attrEsc(t)}" ${t === (profile.pick_winner || '') ? 'selected' : ''}>${escHtml(teamName(t))}</option>
         `).join('')}
       </select>
       <label class="block text-xs text-muted mb-1">Meilleur buteur</label>
@@ -162,7 +162,7 @@ async function renderProfile () {
                   <select class="input-field special-pick-select w-full text-sm" data-group="${attrEsc(g)}" data-position="1" ${groupLocked ? 'disabled' : ''}>
                     <option value="">— Choisir —</option>
                     ${opts.map(t => `
-                      <option value="${attrEsc(t)}" ${t === val1 ? 'selected' : ''}>${escHtml(t)}</option>
+                      <option value="${attrEsc(t)}" ${t === val1 ? 'selected' : ''}>${escHtml(teamName(t))}</option>
                     `).join('')}
                   </select>
                 </div>
@@ -171,7 +171,7 @@ async function renderProfile () {
                   <select class="input-field special-pick-select w-full text-sm" data-group="${attrEsc(g)}" data-position="2" ${groupLocked ? 'disabled' : ''}>
                     <option value="">— Choisir —</option>
                     ${opts.map(t => `
-                      <option value="${attrEsc(t)}" ${t === val2 ? 'selected' : ''}>${escHtml(t)}</option>
+                      <option value="${attrEsc(t)}" ${t === val2 ? 'selected' : ''}>${escHtml(teamName(t))}</option>
                     `).join('')}
                   </select>
                 </div>

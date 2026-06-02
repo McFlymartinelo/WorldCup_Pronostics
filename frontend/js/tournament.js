@@ -210,8 +210,7 @@ async function renderTournament () {
 
   el.querySelectorAll('.match-row').forEach(row => {
     row.addEventListener('click', () => {
-      navigateTo('detail', { matchId: +row.dataset.matchId });
-      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      navigateTo('detail', { matchId: +row.dataset.matchId, returnView: 'tournament' });
     });
   });
 }

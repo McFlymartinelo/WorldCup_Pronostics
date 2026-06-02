@@ -98,14 +98,14 @@ async function renderAdmin () {
                   <label class="text-[10px] text-muted block mb-1">1re place (+1 pt)</label>
                   <select class="input-field admin-group-pos text-xs w-full" data-group="${attrEsc(g)}" data-position="1">
                     <option value="">—</option>
-                    ${opts.map(t => `<option value="${attrEsc(t)}" ${t === (r1?.team_name || '') ? 'selected' : ''}>${escHtml(t)}</option>`).join('')}
+                    ${opts.map(t => `<option value="${attrEsc(t)}" ${t === (r1?.team_name || '') ? 'selected' : ''}>${escHtml(teamName(t))}</option>`).join('')}
                   </select>
                 </div>
                 <div>
                   <label class="text-[10px] text-muted block mb-1">2e place (+1 pt)</label>
                   <select class="input-field admin-group-pos text-xs w-full" data-group="${attrEsc(g)}" data-position="2">
                     <option value="">—</option>
-                    ${opts.map(t => `<option value="${attrEsc(t)}" ${t === (r2?.team_name || '') ? 'selected' : ''}>${escHtml(t)}</option>`).join('')}
+                    ${opts.map(t => `<option value="${attrEsc(t)}" ${t === (r2?.team_name || '') ? 'selected' : ''}>${escHtml(teamName(t))}</option>`).join('')}
                   </select>
                 </div>
               </div>

@@ -57,8 +57,7 @@ async function renderMatches (silent = false) {
 
   el.querySelectorAll('.match-card-link').forEach(card => {
     card.addEventListener('click', () => {
-      navigateTo('detail', { matchId: +card.dataset.matchId });
-      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      navigateTo('detail', { matchId: +card.dataset.matchId, returnView: 'matches' });
     });
   });
 
@@ -287,7 +286,9 @@ async function renderDetail (matchId) {
       ${predsHtml}
     </div>`;
 
-  document.getElementById('btn-back').addEventListener('click', () => navigateTo('matches'));
+  document.getElementById('btn-back').addEventListener('click', () => {
+    navigateTo(state.detailReturnView || 'matches');
+  });
 
   const isLive = m.status === 'LIVE' || m.status === 'IN_PLAY' || m.status === 'PAUSED';
   if (isLive && state.currentView === 'detail') {

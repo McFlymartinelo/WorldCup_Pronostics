@@ -121,8 +121,6 @@ async function showApp () {
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       navigateTo(btn.dataset.view);
-      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
     });
   });
 
