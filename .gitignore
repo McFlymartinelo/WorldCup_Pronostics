@@ -5,8 +5,8 @@ node_modules/
 .env
 .env.local
 
-# Base SQLite locale
-data/
+# Base SQLite locale (racine du projet uniquement)
+/data/
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
