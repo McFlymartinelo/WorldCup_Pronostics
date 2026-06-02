@@ -115,7 +115,7 @@ describe('pools & predictions', () => {
     assert.equal(preds[1].points, 0);
   });
 
-  it('recalcule les points via computePoints pour tous les pronos NULL', async () => {
+  it('recalcule les points via computePoints (y compris pronos déjà notés)', async () => {
     const { lastID: u2 } = await run(
       `INSERT INTO users (pseudo, password_hash, role) VALUES (?, ?, 'player')`,
       ['scorer', 'hash'],

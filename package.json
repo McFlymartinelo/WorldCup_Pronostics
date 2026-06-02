@@ -9,6 +9,7 @@
     "start": "node backend/server.js",
     "dev": "nodemon backend/server.js",
     "test": "node --test tests/*.test.js",
+    "recalc-points": "node scripts/recalc-points.js",
     "icons": "node scripts/generate-pwa-icons.js",
     "keepalive": "node scripts/keepalive.js"
   },

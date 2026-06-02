@@ -24,11 +24,13 @@ async function renderAdmin () {
 
   let users = []; let logs = [];
   let groupData = { groups: [], results: [], options: {} };
+  let comp = { teams: [], scorers: [], winner_team: null, top_scorer: null };
   try {
-    [users, logs, groupData] = await Promise.all([
+    [users, logs, groupData, comp] = await Promise.all([
       API.getUsers(),
       API.getSyncLog(),
       API.getGroupResults().catch(() => ({ groups: [], results: [], options: {} })),
+      API.getCompetitionResults().catch(() => ({ teams: [], scorers: [], winner_team: null, top_scorer: null })),
     ]);
   } catch (e) { el.innerHTML = `<p class="text-red-400 text-sm">${e.message}</p>`; return; }
 
@@ -111,6 +113,27 @@ async function renderAdmin () {
               </div>
             </div>`;
         }).join('')}
+    </div>
+
+    <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Résultats tournoi (bonus)</p>
+    <div class="bg-surface border border-border rounded-xl p-4 mb-6">
+      <p class="text-xs text-muted mb-3">Champion (+5 pts) et meilleur buteur (+3 pts) — à définir en fin de compétition.</p>
+      <label class="block text-xs text-muted mb-1">Vainqueur</label>
+      <select id="admin-winner" class="input-field w-full mb-3 text-sm">
+        <option value="">— Non défini —</option>
+        ${(comp.teams || []).map(t => `
+          <option value="${attrEsc(t)}" ${t === (comp.winner_team || '') ? 'selected' : ''}>${escHtml(teamName(t))}</option>
+        `).join('')}
+      </select>
+      <label class="block text-xs text-muted mb-1">Meilleur buteur</label>
+      <input id="admin-top-scorer" type="text" list="admin-scorers-list" class="input-field w-full text-sm mb-3"
+             value="${attrEsc(comp.top_scorer || '')}" placeholder="Nom exact du joueur" />
+      <datalist id="admin-scorers-list">
+        ${(comp.scorers || []).map(n => `<option value="${attrEsc(n)}">`).join('')}
+      </datalist>
+      <button id="btn-save-competition" class="w-full text-xs bg-amber-950 border border-amber-800 text-amber-300 py-2 rounded-lg hover:bg-amber-900 transition">
+        Enregistrer les résultats
+      </button>
     </div>`;
 
   el.querySelectorAll('.admin-group-pos').forEach(sel => {
@@ -183,5 +206,18 @@ async function renderAdmin () {
         toast(e.message, 'error');
       }
     });
+  });
+
+  document.getElementById('btn-save-competition').addEventListener('click', async () => {
+    try {
+      await API.setCompetitionResults({
+        winner_team: document.getElementById('admin-winner').value || null,
+        top_scorer: document.getElementById('admin-top-scorer').value.trim() || null,
+      });
+      toast('Résultats enregistrés — classement mis à jour', 'success');
+      if (state.currentView === 'standings') renderStandings();
+    } catch (e) {
+      toast(e.message, 'error');
+    }
   });
 }

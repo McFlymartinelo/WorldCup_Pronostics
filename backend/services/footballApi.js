@@ -145,17 +145,34 @@ async function syncScores () {
 
 async function computePoints (matchId, realHome, realAway) {
   const predictions = await all(
-    'SELECT id, predicted_home, predicted_away FROM predictions WHERE match_id = ? AND points IS NULL',
-    [matchId]
+    'SELECT id, predicted_home, predicted_away FROM predictions WHERE match_id = ?',
+    [matchId],
   );
 
   for (const p of predictions) {
     const pts = scorePrediction(p.predicted_home, p.predicted_away, realHome, realAway);
     await run(
       'UPDATE predictions SET points = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [pts, p.id]
+      [pts, p.id],
     );
   }
+
+  return predictions.length;
+}
+
+/** Recalcule les points pour tous les matchs terminés (script admin / barème modifié). */
+async function recalculateAllFinishedMatches () {
+  const matches = await all(`
+    SELECT id, home_score, away_score FROM matches
+    WHERE status = 'FINISHED'
+      AND home_score IS NOT NULL
+      AND away_score IS NOT NULL
+  `);
+  let preds = 0;
+  for (const m of matches) {
+    preds += await computePoints(m.id, m.home_score, m.away_score);
+  }
+  return { matches: matches.length, predictions: preds };
 }
 
 async function log (jobType, status, message) {
@@ -165,4 +182,4 @@ async function log (jobType, status, message) {
   );
 }
 
-module.exports = { syncFixtures, syncScores, computePoints };
+module.exports = { syncFixtures, syncScores, computePoints, recalculateAllFinishedMatches };
