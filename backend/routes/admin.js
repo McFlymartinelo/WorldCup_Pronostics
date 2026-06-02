@@ -24,10 +24,12 @@ router.post('/users', requireAdmin, async (req, res) => {
     return res.status(400).json({ error: 'pseudo et password requis' });
   try {
     const hash = bcrypt.hashSync(password, 10);
-    await run(
+    const { lastID } = await run(
       `INSERT INTO users (pseudo, password_hash, role) VALUES (?, ?, ?)`,
       [pseudo, hash, role]
     );
+    const { addUserToGeneralPool } = require('../services/poolService');
+    await addUserToGeneralPool(lastID);
     res.status(201).json({ success: true });
   } catch {
     res.status(409).json({ error: 'Pseudo déjà utilisé' });

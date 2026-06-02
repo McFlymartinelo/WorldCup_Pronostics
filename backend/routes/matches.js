@@ -1,12 +1,12 @@
 'use strict';
-const express         = require('express');
-const { all, get }    = require('../database/db');
+const express = require('express');
+const { all, get } = require('../database/db');
 const { requireAuth } = require('../middleware/auth');
+const { requirePool } = require('../middleware/requirePool');
 
 const router = express.Router();
 
-// GET /api/matches
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, requirePool, async (req, res) => {
   try {
     const now = new Date().toISOString();
 
@@ -18,9 +18,9 @@ router.get('/', requireAuth, async (req, res) => {
         p.points
       FROM matches m
       LEFT JOIN predictions p
-             ON p.match_id = m.id AND p.user_id = ?
+             ON p.match_id = m.id AND p.user_id = ? AND p.pool_id = ?
       ORDER BY m.match_date ASC
-    `, [req.user.id]);
+    `, [req.user.id, req.poolId]);
 
     const enriched = matches.map(m => ({
       ...m,
@@ -35,15 +35,14 @@ router.get('/', requireAuth, async (req, res) => {
 
     res.json(enriched);
   } catch (e) {
-    console.error(e);
+    console.error('[matches]', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
-// GET /api/matches/:id
-router.get('/:id', requireAuth, async (req, res) => {
+router.get('/:id', requireAuth, requirePool, async (req, res) => {
   try {
-    const now   = new Date().toISOString();
+    const now = new Date().toISOString();
     const match = await get('SELECT * FROM matches WHERE id = ?', [req.params.id]);
     if (!match) return res.status(404).json({ error: 'Match introuvable' });
 
@@ -58,15 +57,17 @@ router.get('/:id', requireAuth, async (req, res) => {
         SELECT u.pseudo, p.predicted_home, p.predicted_away, p.points
         FROM predictions p
         JOIN users u ON u.id = p.user_id
-        WHERE p.match_id = ?
+        JOIN pool_members pm ON pm.user_id = u.id AND pm.pool_id = ?
+        WHERE p.match_id = ? AND p.pool_id = ?
         ORDER BY p.points DESC
-      `, [match.id]);
+      `, [req.poolId, match.id, req.poolId]);
     }
 
     const myPrediction = await get(`
       SELECT predicted_home, predicted_away, points
-      FROM predictions WHERE match_id = ? AND user_id = ?
-    `, [match.id, req.user.id]);
+      FROM predictions
+      WHERE match_id = ? AND user_id = ? AND pool_id = ?
+    `, [match.id, req.user.id, req.poolId]);
 
     res.json({
       match,
@@ -75,15 +76,15 @@ router.get('/:id', requireAuth, async (req, res) => {
       all_predictions: allPredictions,
       home_stats: homeStats ? {
         form: homeStats.last_5_form,
-        h2h:  JSON.parse(homeStats.h2h_data || '[]'),
+        h2h: JSON.parse(homeStats.h2h_data || '[]'),
       } : null,
       away_stats: awayStats ? {
         form: awayStats.last_5_form,
-        h2h:  JSON.parse(awayStats.h2h_data || '[]'),
+        h2h: JSON.parse(awayStats.h2h_data || '[]'),
       } : null,
     });
   } catch (e) {
-    console.error(e);
+    console.error('[matches/detail]', e.message);
     res.status(500).json({ error: e.message });
   }
 });

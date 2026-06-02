@@ -2,14 +2,27 @@ const API = (() => {
   const BASE = '/api';
 
   function getToken () { return localStorage.getItem('token'); }
+  function getPoolId () { return localStorage.getItem('currentPoolId'); }
+  function setPoolId (id) {
+    if (id) localStorage.setItem('currentPoolId', String(id));
+    else localStorage.removeItem('currentPoolId');
+  }
 
-  async function req (method, path, body) {
+  async function req (method, path, body, { poolScoped = false } = {}) {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+    };
+
+    if (poolScoped) {
+      const poolId = getPoolId();
+      if (!poolId) throw new Error('Aucun groupe sélectionné');
+      headers['X-Pool-Id'] = poolId;
+    }
+
     const opts = {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
-      },
+      headers,
       ...(body ? { body: JSON.stringify(body) } : {}),
     };
     const res = await fetch(BASE + path, opts);
@@ -19,21 +32,31 @@ const API = (() => {
   }
 
   return {
+    getPoolId,
+    setPoolId,
+
     // Auth
     login:          (pseudo, password) => req('POST', '/auth/login',    { pseudo, password }),
-    register:       (pseudo, password) => req('POST', '/auth/register', { pseudo, password }),
+    register:       (pseudo, password, pool) => req('POST', '/auth/register', { pseudo, password, ...pool }),
     me:             ()                 => req('GET',  '/auth/me'),
 
+    // Groupes
+    getPublicPools: ()                 => req('GET',  '/pools/public'),
+    getPools:       ()                 => req('GET',  '/pools'),
+    createPool:     (name)             => req('POST', '/pools', { name }),
+    joinPool:       (invite_code)      => req('POST', '/pools/join', { invite_code }),
+    getPool:        (id)               => req('GET',  `/pools/${id}`),
+
     // Matchs
-    getMatches:     ()          => req('GET', '/matches'),
-    getMatch:       (id)        => req('GET', `/matches/${id}`),
+    getMatches:     ()          => req('GET', '/matches', null, { poolScoped: true }),
+    getMatch:       (id)        => req('GET', `/matches/${id}`, null, { poolScoped: true }),
 
     // Pronostics
     savePrediction: (match_id, predicted_home, predicted_away) =>
-      req('POST', '/predictions', { match_id, predicted_home, predicted_away }),
+      req('POST', '/predictions', { match_id, predicted_home, predicted_away }, { poolScoped: true }),
 
     // Classement
-    getStandings:   ()          => req('GET', '/standings'),
+    getStandings:   ()          => req('GET', '/standings', null, { poolScoped: true }),
 
     // Admin
     getUsers:       ()                  => req('GET',    '/admin/users'),
@@ -48,14 +71,14 @@ const API = (() => {
     getSquad:       (teamName)          => req('GET', `/squads/${encodeURIComponent(teamName)}`),
     syncSquads:     ()                  => req('POST', '/admin/sync/squads'),
     getTournament:  ()                  => req('GET', '/tournament'),
-    // Notifications        
+    // Notifications
     getVapidKey:      ()                => req('GET',    '/notifications/vapid-key'),
     getNotifStatus:   ()                => req('GET',    '/notifications/status'),
     subscribeNotif:   (sub)             => req('POST',   '/notifications/subscribe', { subscription: sub }),
     unsubscribeNotif: ()                => req('DELETE', '/notifications/unsubscribe'),
-    getProfile:           ()           => req('GET',   '/profile'),
-    getProfilePickOptions: ()          => req('GET',   '/profile/pick-options'),
-    updateProfile:        (data)       => req('PATCH', '/profile', data),
+    getProfile:           ()           => req('GET',   '/profile', null, { poolScoped: true }),
+    getProfilePickOptions: ()          => req('GET',   '/profile/pick-options', null, { poolScoped: true }),
+    updateProfile:        (data)       => req('PATCH', '/profile', data, { poolScoped: true }),
     getCompetitionResults: ()          => req('GET',   '/admin/competition-results'),
     setCompetitionResults: (data)     => req('PATCH', '/admin/competition-results', data),
   };

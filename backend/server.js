@@ -15,6 +15,7 @@ app.use(express.json());
 
 // ── API routes ────────────────────────────────────────────────────────
 app.use('/api/auth',            require('./routes/auth'));
+app.use('/api/pools',           require('./routes/pools'));
 app.use('/api/matches',         require('./routes/matches'));
 app.use('/api/predictions',     require('./routes/predictions'));
 app.use('/api/standings',       require('./routes/standings'));

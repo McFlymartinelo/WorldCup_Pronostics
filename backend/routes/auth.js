@@ -1,34 +1,59 @@
 'use strict';
 const express = require('express');
-const bcrypt  = require('bcryptjs');
-const jwt     = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const { run, get } = require('../database/db');
 const { requireAuth } = require('../middleware/auth');
+const { registerToPool } = require('../services/poolService');
 
 const router = express.Router();
 
-// POST /api/auth/register  — inscription libre
+// POST /api/auth/register
 router.post('/register', async (req, res) => {
-  const { pseudo, password } = req.body;
-  if (!pseudo || !password)
+  const { pseudo, password, pool_id, invite_code } = req.body;
+  if (!pseudo || !password) {
     return res.status(400).json({ error: 'pseudo et password requis' });
-  if (pseudo.length < 2 || pseudo.length > 20)
+  }
+  if (pseudo.length < 2 || pseudo.length > 20) {
     return res.status(400).json({ error: 'pseudo : 2 à 20 caractères' });
-  if (password.length < 6)
+  }
+  if (password.length < 6) {
     return res.status(400).json({ error: 'Mot de passe trop court (min 6)' });
+  }
+  if (!pool_id && !invite_code) {
+    return res.status(400).json({ error: 'Choisissez un groupe ou saisissez un code d\'accès' });
+  }
+  if (pool_id && invite_code) {
+    return res.status(400).json({ error: 'Choisissez un groupe ou un code, pas les deux' });
+  }
 
   try {
     const hash = bcrypt.hashSync(password, 10);
     const { lastID } = await run(
       `INSERT INTO users (pseudo, password_hash) VALUES (?, ?)`,
-      [pseudo.trim(), hash]
+      [pseudo.trim(), hash],
     );
+
+    let joinedPoolId;
+    try {
+      joinedPoolId = await registerToPool(lastID, { pool_id, invite_code });
+    } catch (poolErr) {
+      await run('DELETE FROM users WHERE id = ?', [lastID]);
+      return res.status(poolErr.status || 400).json({ error: poolErr.message });
+    }
+
     const trimmed = pseudo.trim();
     const token = signToken({ id: lastID, pseudo: trimmed, role: 'player' });
-    res.status(201).json({ token, pseudo: trimmed, role: 'player' });
+    res.status(201).json({
+      token,
+      pseudo: trimmed,
+      role: 'player',
+      pool_id: joinedPoolId,
+    });
   } catch (e) {
-    if (e.message.includes('UNIQUE'))
+    if (e.message.includes('UNIQUE')) {
       return res.status(409).json({ error: 'Ce pseudo est déjà pris' });
+    }
     console.error('[auth/register]', e.message);
     res.status(500).json({ error: 'Erreur serveur' });
   }
@@ -38,17 +63,18 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { pseudo, password } = req.body;
 
-  // Ajout de la vérification
-  if (!pseudo || !password)
+  if (!pseudo || !password) {
     return res.status(400).json({ error: 'pseudo et password requis' });
+  }
 
   const user = await get(
     'SELECT * FROM users WHERE LOWER(pseudo) = LOWER(?)',
-    [pseudo]
+    [pseudo],
   );
 
-  if (!user || !bcrypt.compareSync(password, user.password_hash))
+  if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: 'Pseudo ou mot de passe incorrect' });
+  }
 
   const token = signToken({ id: user.id, pseudo: user.pseudo, role: user.role });
   res.json({ token, pseudo: user.pseudo, role: user.role });

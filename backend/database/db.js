@@ -143,6 +143,9 @@ async function initDB () {
   try { await run(`ALTER TABLE users ADD COLUMN pick_winner TEXT`); } catch {}
   try { await run(`ALTER TABLE users ADD COLUMN pick_top_scorer TEXT`); } catch {}
 
+  const { migrateToPools } = require('../services/poolService');
+  await migrateToPools();
+
   console.log('✅  Base de données initialisée');
 }
 

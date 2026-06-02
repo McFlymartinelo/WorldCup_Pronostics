@@ -6,6 +6,8 @@ let state = {
   currentView: 'matches',
   matches: [],
   standings: [],
+  pools: [],
+  currentPool: null,
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -35,18 +37,59 @@ function initAuthUI() {
   const tabRegister = document.getElementById('tab-register');
   const btnAuth = document.getElementById('btn-auth');
   const authError = document.getElementById('auth-error');
+  const registerPoolSection = document.getElementById('register-pool-section');
+  const regTabSelect = document.getElementById('reg-pool-tab-select');
+  const regTabCode = document.getElementById('reg-pool-tab-code');
+  const poolSelect = document.getElementById('input-pool-select');
+  const poolCodeReg = document.getElementById('input-pool-code-reg');
   let mode = 'login';
+  let regPoolMode = 'select';
+  let publicPools = [];
+
+  async function loadPublicPools () {
+    try {
+      publicPools = await API.getPublicPools();
+      if (!poolSelect) return;
+      if (!publicPools.length) {
+        poolSelect.innerHTML = '<option value="">Aucun groupe public — utilisez un code</option>';
+        return;
+      }
+      poolSelect.innerHTML = publicPools.map(p =>
+        `<option value="${p.id}">${escHtml(p.name)} (${p.member_count} membre${p.member_count > 1 ? 's' : ''})</option>`,
+      ).join('');
+    } catch {
+      if (poolSelect) {
+        poolSelect.innerHTML = '<option value="">Impossible de charger les groupes</option>';
+      }
+    }
+  }
+
+  function setRegPoolMode (next) {
+    regPoolMode = next;
+    regTabSelect?.classList.toggle('active', next === 'select');
+    regTabCode?.classList.toggle('active', next === 'code');
+    poolSelect?.classList.toggle('hidden', next !== 'select');
+    poolCodeReg?.classList.toggle('hidden', next !== 'code');
+  }
 
   tabLogin.addEventListener('click', () => {
     mode = 'login';
     tabLogin.classList.add('active'); tabRegister.classList.remove('active');
     btnAuth.textContent = 'Se connecter';
+    registerPoolSection?.classList.add('hidden');
   });
+
   tabRegister.addEventListener('click', () => {
     mode = 'register';
     tabRegister.classList.add('active'); tabLogin.classList.remove('active');
     btnAuth.textContent = "S'inscrire";
+    registerPoolSection?.classList.remove('hidden');
+    setRegPoolMode('select');
+    loadPublicPools();
   });
+
+  regTabSelect?.addEventListener('click', () => setRegPoolMode('select'));
+  regTabCode?.addEventListener('click', () => setRegPoolMode('code'));
 
   btnAuth.addEventListener('click', async () => {
     const pseudo = document.getElementById('input-pseudo').value.trim();
@@ -54,9 +97,22 @@ function initAuthUI() {
     authError.classList.add('hidden');
     btnAuth.disabled = true;
     try {
-      const data = mode === 'login'
-        ? await API.login(pseudo, password)
-        : await API.register(pseudo, password);
+      let data;
+      if (mode === 'login') {
+        data = await API.login(pseudo, password);
+      } else {
+        const poolPayload = regPoolMode === 'code'
+          ? { invite_code: poolCodeReg?.value.trim() }
+          : { pool_id: parseInt(poolSelect?.value, 10) };
+        if (regPoolMode === 'code' && !poolPayload.invite_code) {
+          throw new Error('Saisissez un code d\'accès');
+        }
+        if (regPoolMode === 'select' && !poolPayload.pool_id) {
+          throw new Error('Choisissez un groupe');
+        }
+        data = await API.register(pseudo, password, poolPayload);
+        if (data.pool_id) API.setPoolId(data.pool_id);
+      }
       localStorage.setItem('token', data.token);
       state.user = { pseudo: data.pseudo, role: data.role };
       await showApp();
@@ -79,6 +135,9 @@ async function showApp() {
   document.getElementById('app-shell').classList.remove('hidden');
   document.getElementById('nav-tournament').classList.remove('hidden');
   document.getElementById('header-pseudo').textContent = state.user.pseudo;
+
+  await loadPools();
+  initPoolUI();
 
   // Affiche le bouton admin si besoin
   if (state.user.role === 'admin')
@@ -139,6 +198,138 @@ async function showApp() {
   }
 
   navigateTo('matches');
+}
+
+async function loadPools () {
+  state.pools = await API.getPools();
+  const savedId = API.getPoolId();
+  const saved = state.pools.find(p => String(p.id) === savedId);
+  state.currentPool = saved || state.pools[0] || null;
+  if (state.currentPool) API.setPoolId(state.currentPool.id);
+  updatePoolSelectorLabel();
+}
+
+function updatePoolSelectorLabel () {
+  const btn = document.getElementById('btn-pool-selector');
+  if (!btn) return;
+  btn.textContent = state.currentPool
+    ? `👥 ${state.currentPool.name}`
+    : 'Aucun groupe';
+}
+
+function initPoolUI () {
+  const modal = document.getElementById('pool-modal');
+  const btnOpen = document.getElementById('btn-pool-selector');
+  const btnClose = document.getElementById('btn-pool-close');
+  const btnCreate = document.getElementById('btn-pool-create');
+  const btnJoin = document.getElementById('btn-pool-join');
+  const msg = document.getElementById('pool-msg');
+
+  if (!modal || !btnOpen) return;
+
+  btnOpen.addEventListener('click', () => {
+    renderPoolModal();
+    modal.classList.remove('hidden');
+  });
+
+  btnClose?.addEventListener('click', () => modal.classList.add('hidden'));
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.classList.add('hidden');
+  });
+
+  btnCreate?.addEventListener('click', async () => {
+    const name = document.getElementById('input-pool-name')?.value.trim();
+    if (!name) return;
+    btnCreate.disabled = true;
+    try {
+      const pool = await API.createPool(name);
+      await loadPools();
+      await selectPool(pool.id);
+      document.getElementById('input-pool-name').value = '';
+      renderPoolModal();
+      showPoolMsg('Groupe créé !', 'green');
+    } catch (e) {
+      showPoolMsg(e.message, 'red');
+    } finally {
+      btnCreate.disabled = false;
+    }
+  });
+
+  btnJoin?.addEventListener('click', async () => {
+    const code = document.getElementById('input-pool-code')?.value.trim();
+    if (!code) return;
+    btnJoin.disabled = true;
+    try {
+      const pool = await API.joinPool(code);
+      await loadPools();
+      await selectPool(pool.id);
+      document.getElementById('input-pool-code').value = '';
+      renderPoolModal();
+      showPoolMsg(`Bienvenue dans « ${pool.name} » !`, 'green');
+    } catch (e) {
+      showPoolMsg(e.message, 'red');
+    } finally {
+      btnJoin.disabled = false;
+    }
+  });
+
+  function showPoolMsg (text, color) {
+    if (!msg) return;
+    msg.textContent = text;
+    msg.className = `text-xs text-center ${color === 'green' ? 'text-green-400' : 'text-red-400'}`;
+    msg.classList.remove('hidden');
+    setTimeout(() => msg.classList.add('hidden'), 3000);
+  }
+}
+
+function renderPoolModal () {
+  const list = document.getElementById('pool-list');
+  if (!list) return;
+
+  if (!state.pools.length) {
+    list.innerHTML = '<p class="text-xs text-muted text-center py-4">Aucun groupe — créez-en un ou rejoignez avec un code.</p>';
+    return;
+  }
+
+  list.innerHTML = state.pools.map(p => `
+    <button type="button"
+            class="pool-pick w-full text-left bg-bg border rounded-xl px-3 py-2.5 transition
+                   ${p.id === state.currentPool?.id ? 'border-blue-600 ring-1 ring-blue-600/40' : 'border-border hover:border-slate-500'}"
+            data-pool-id="${p.id}">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-sm text-white font-medium truncate">${escHtml(p.name)}</span>
+        ${p.id === state.currentPool?.id ? '<span class="text-[10px] text-blue-300 shrink-0">Actif</span>' : ''}
+      </div>
+      <p class="text-[10px] text-muted mt-0.5">
+        ${p.member_count} membre${p.member_count > 1 ? 's' : ''}
+        ${p.role === 'owner' ? ` · Code : <span class="text-slate-300 font-mono">${escHtml(p.invite_code)}</span>` : ''}
+      </p>
+    </button>
+  `).join('');
+
+  list.querySelectorAll('.pool-pick').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await selectPool(+btn.dataset.poolId);
+      renderPoolModal();
+      document.getElementById('pool-modal')?.classList.add('hidden');
+    });
+  });
+}
+
+async function selectPool (poolId) {
+  const pool = state.pools.find(p => p.id === poolId);
+  if (!pool) return;
+  state.currentPool = pool;
+  API.setPoolId(pool.id);
+  updatePoolSelectorLabel();
+  refreshCurrentView();
+}
+
+function refreshCurrentView () {
+  if (state.currentView === 'matches') renderMatches();
+  else if (state.currentView === 'detail') navigateTo('matches');
+  else if (state.currentView === 'standings') renderStandings();
+  else if (state.currentView === 'profile') renderProfile();
 }
 
 async function initNotifications(btn) {
@@ -266,7 +457,7 @@ async function renderProfile() {
     <!-- Pronostics tournoi -->
     <div class="bg-surface border border-border rounded-xl p-4 mb-4">
       <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-1">Pronostics tournoi</p>
-      <p class="text-xs text-muted mb-3">Champion (+5 pts) · Meilleur buteur (+3 pts)</p>
+      <p class="text-xs text-muted mb-3">Champion (+5 pts) · Meilleur buteur (+3 pts) · Groupe : <span class="text-slate-300">${escHtml(state.currentPool?.name || '—')}</span></p>
       ${locked
         ? '<p class="text-amber-400/90 text-xs mb-3">🔒 Verrouillé — le premier match a commencé, plus de modification possible.</p>'
         : '<p class="text-xs text-slate-500 mb-3">À enregistrer avant le coup d\'envoi du premier match.</p>'}
@@ -885,7 +1076,8 @@ async function renderStandings() {
   ).join('');
 
   el.innerHTML = `
-    <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-4">Classement général</p>
+    <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-1">Classement</p>
+    <p class="text-xs text-slate-400 mb-4">${escHtml(state.currentPool?.name || 'Groupe')}</p>
     ${rows || '<p class="text-muted text-sm text-center py-8">Aucun joueur.</p>'}
     <div class="mt-4 bg-surface border border-border rounded-xl p-3">
       <p class="text-xs text-muted mb-2">Légende</p>
