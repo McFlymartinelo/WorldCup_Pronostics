@@ -86,7 +86,7 @@ function matchCard (m) {
   });
 
   const realScore = (m.status === 'LIVE' || m.status === 'FINISHED') && m.home_score !== null
-    ? `<div class="text-lg font-bold ${m.status === 'LIVE' ? 'text-amber-400' : 'text-slate-200'}">
+    ? `<div class="text-lg font-bold text-center ${m.status === 'LIVE' ? 'text-amber-400' : 'text-slate-200'}">
          ${m.home_score} – ${m.away_score}
        </div>
        <div class="text-xs text-muted text-center mt-0.5">Score réel</div>`
