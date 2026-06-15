@@ -241,17 +241,10 @@ function renderStatsCharts (stats) {
         labels: stats.players.map(p => p.pseudo),
         datasets: [
           {
-            label: 'Points matchs',
-            data: stats.players.map(p => p.match_points),
+            label: 'Moy. pts/match',
+            data: stats.players.map(p => p.avg_points),
             backgroundColor: '#14b8a699',
             borderColor: '#14b8a6',
-            borderWidth: 1,
-          },
-          {
-            label: 'Bonus',
-            data: stats.players.map(p => p.total_points - p.match_points),
-            backgroundColor: '#f59e0b88',
-            borderColor: '#f59e0b',
             borderWidth: 1,
           },
         ],
@@ -259,10 +252,17 @@ function renderStatsCharts (stats) {
       options: {
         ...commonOpts,
         scales: {
-          x: { ...commonOpts.scales.x, stacked: true },
-          y: { ...commonOpts.scales.y, stacked: true, beginAtZero: true },
+          x: { ...commonOpts.scales.x },
+          y: { ...commonOpts.scales.y, beginAtZero: true },
         },
-        plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 } } } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => `${ctx.parsed.y} pt/match`,
+            },
+          },
+        },
       },
     }));
   }
@@ -312,7 +312,7 @@ function statsPanelHtml (stats) {
         <div class="chart-wrap"><canvas id="chart-distribution"></canvas></div>
       </div>
       <div class="bg-surface border border-border rounded-xl p-3">
-        <p class="text-xs font-semibold text-slate-300 mb-2">Points par joueur</p>
+        <p class="text-xs font-semibold text-slate-300 mb-2">Moyenne de points par match</p>
         <div class="chart-wrap"><canvas id="chart-bars"></canvas></div>
       </div>
     </div>
