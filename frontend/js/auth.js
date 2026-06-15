@@ -98,6 +98,14 @@ function showLogin () {
   document.getElementById('app-shell').classList.add('hidden');
 }
 
+function prefillJoinCode () {
+  if (!state.pendingJoinCode) return;
+  document.getElementById('tab-register')?.click();
+  document.getElementById('reg-pool-tab-code')?.click();
+  const field = document.getElementById('input-pool-code-reg');
+  if (field) field.value = state.pendingJoinCode;
+}
+
 async function showApp () {
   document.getElementById('view-login').classList.add('hidden');
   document.getElementById('app-shell').classList.remove('hidden');
@@ -106,6 +114,24 @@ async function showApp () {
 
   await loadPools();
   initPoolUI();
+
+  if (state.pendingJoinCode) {
+    const code = state.pendingJoinCode;
+    state.pendingJoinCode = null;
+    const already = state.pools.find(p => p.invite_code === code);
+    if (already) {
+      await selectPool(already.id);
+    } else {
+      try {
+        const pool = await API.joinPool(code);
+        await loadPools();
+        await selectPool(pool.id);
+        toast(`Bienvenue dans « ${pool.name} » !`, 'success');
+      } catch (e) {
+        toast(e.message, 'warning');
+      }
+    }
+  }
 
   if (state.user.role === 'admin') {
     document.getElementById('nav-admin').classList.remove('hidden');

@@ -17,8 +17,11 @@ function updatePoolSelectorLabel () {
     : 'Aucun groupe';
 }
 
-async function copyInviteText (code, name) {
-  const text = `Rejoins mon groupe « ${name} » sur Pronostics CdM 2026 !\nCode d'accès : ${code}`;
+function poolJoinLink (code) {
+  return `${location.origin}/?join=${encodeURIComponent(code)}`;
+}
+
+async function copyToClipboard (text) {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
     return;
@@ -31,6 +34,88 @@ async function copyInviteText (code, name) {
   ta.select();
   document.execCommand('copy');
   document.body.removeChild(ta);
+}
+
+function inviteMessage (code, name) {
+  return `Rejoins mon groupe « ${name} » sur Pronostics CdM 2026 !\n${poolJoinLink(code)}\n(ou code d'accès : ${code})`;
+}
+
+async function copyInviteText (code, name) {
+  await copyToClipboard(inviteMessage(code, name));
+}
+
+function closeInviteShare () {
+  document.getElementById('invite-overlay')?.remove();
+}
+
+function openInviteShare (code, name) {
+  closeInviteShare();
+  const link = poolJoinLink(code);
+  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=10&data=${encodeURIComponent(link)}`;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'invite-overlay';
+  overlay.className = 'compare-overlay';
+  overlay.innerHTML = `
+    <div class="compare-modal" role="dialog" aria-labelledby="invite-title">
+      <div class="flex items-center justify-between mb-4">
+        <p id="invite-title" class="text-sm font-semibold text-white truncate">Inviter dans « ${escHtml(name)} »</p>
+        <button type="button" id="invite-close" class="text-muted hover:text-white text-lg leading-none">&times;</button>
+      </div>
+
+      <div class="flex justify-center mb-4">
+        <div class="bg-white p-2 rounded-xl">
+          <img src="${qrSrc}" alt="QR code d'invitation" width="200" height="200"
+               class="block w-[200px] h-[200px]" />
+        </div>
+      </div>
+
+      <p class="text-[10px] text-muted text-center mb-1">Scanne le QR ou partage le lien</p>
+      <div class="flex items-center gap-2 bg-bg border border-border rounded-lg px-2 py-2 mb-3">
+        <span class="text-xs text-slate-300 truncate flex-1">${escHtml(link)}</span>
+        <span class="text-xs font-mono text-blue-300 bg-border px-2 py-0.5 rounded shrink-0">${escHtml(code)}</span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" id="invite-copy"
+                class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition">
+          📋 Copier le lien
+        </button>
+        <button type="button" id="invite-native"
+                class="text-xs bg-slate-800 border border-slate-600 text-slate-200 py-2.5 rounded-lg hover:bg-slate-700 transition">
+          📤 Partager
+        </button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeInviteShare(); });
+  document.getElementById('invite-close').addEventListener('click', closeInviteShare);
+
+  document.getElementById('invite-copy').addEventListener('click', async () => {
+    try {
+      await copyToClipboard(link);
+      toast('Lien copié !', 'success');
+    } catch {
+      toast('Impossible de copier', 'error');
+    }
+  });
+
+  document.getElementById('invite-native').addEventListener('click', async () => {
+    const text = inviteMessage(code, name);
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Pronostics CdM 2026', text, url: link });
+      } catch { /* annulé */ }
+    } else {
+      try {
+        await copyToClipboard(text);
+        toast('Invitation copiée !', 'success');
+      } catch {
+        toast('Impossible de partager', 'error');
+      }
+    }
+  });
 }
 
 function initPoolUI () {
@@ -120,6 +205,12 @@ function renderPoolModal () {
                   data-name="${escHtml(p.name)}">
             📋 Copier
           </button>
+          <button type="button"
+                  class="btn-share-invite text-[10px] font-semibold text-blue-400 hover:text-blue-300 px-2 py-0.5 rounded border border-blue-800/60"
+                  data-code="${escHtml(p.invite_code)}"
+                  data-name="${escHtml(p.name)}">
+            🔗 Lien + QR
+          </button>
         </div>
       ` : ''}
     </button>
@@ -134,6 +225,13 @@ function renderPoolModal () {
       } catch {
         toast('Impossible de copier', 'error');
       }
+    });
+  });
+
+  list.querySelectorAll('.btn-share-invite').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openInviteShare(btn.dataset.code, btn.dataset.name);
     });
   });
 
