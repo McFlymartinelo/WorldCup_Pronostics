@@ -179,6 +179,7 @@ async function renderDetail (matchId) {
   catch (e) { el.innerHTML = `<p class="text-red-400 text-sm">${e.message}</p>`; return; }
 
   const { match: m, is_locked, my_prediction, all_predictions, home_stats, away_stats } = data;
+  const reactionEmojis = data.prediction_emojis || ['👍', '🔥', '😂', '🎯', '💪', '😱', '🤡', '🧊'];
 
   const formHtml = (stats) => {
     if (!stats?.form) return '<span class="text-muted text-xs">—</span>';
@@ -241,13 +242,33 @@ async function renderDetail (matchId) {
 
   const predsHtml = is_locked && all_predictions.length
     ? all_predictions.map((p, i) => `
-        <div class="flex items-center gap-3 py-2 border-b border-border last:border-0">
-          <span class="text-sm text-muted w-5 text-center">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</span>
-          <span class="flex-1 text-sm ${p.pseudo === state.user.pseudo ? 'text-white font-semibold' : 'text-slate-300'}">${p.pseudo}</span>
-          <span class="text-sm font-semibold">${p.predicted_home} – ${p.predicted_away}</span>
-          ${p.points !== null
+        <div class="py-2 border-b border-border last:border-0">
+          <div class="flex items-center gap-3">
+            <span class="text-sm text-muted w-5 text-center">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</span>
+            <span class="flex-1 text-sm ${p.pseudo === state.user.pseudo ? 'text-white font-semibold' : 'text-slate-300'}">${escHtml(p.pseudo)}</span>
+            <span class="text-sm font-semibold">${p.predicted_home} – ${p.predicted_away}</span>
+            ${p.points !== null
         ? `<span class="${ptsCls(p.points)} text-xs px-2 py-0.5 rounded-full">${p.points} pt${p.points !== 1 ? 's' : ''}</span>`
         : '<span class="text-xs text-muted">—</span>'}
+          </div>
+          <div class="flex items-center flex-wrap gap-1 mt-1.5 pl-8">
+            ${(p.reactions || []).map(r => `
+              <button type="button"
+                      class="pred-react-chip inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${r.mine ? 'bg-blue-950 border-blue-700 text-blue-200' : 'bg-bg border-border text-slate-300'}"
+                      data-prediction-id="${p.prediction_id}" data-emoji="${r.emoji}"
+                      title="${attrEsc((r.users || []).join(', '))}">
+                ${r.emoji} ${r.count}
+              </button>`).join('')}
+            <div class="relative inline-block">
+              <button type="button" class="pred-react-add text-xs px-2 py-0.5 rounded-full border border-border text-muted hover:text-white"
+                      data-prediction-id="${p.prediction_id}">＋</button>
+              <div class="pred-react-palette hidden absolute z-10 bottom-full mb-1 left-0 bg-surface border border-border rounded-lg p-1 flex gap-1 shadow-lg">
+                ${reactionEmojis.map(e => `
+                  <button type="button" class="pred-react-emoji text-base leading-none hover:scale-125 transition px-0.5"
+                          data-prediction-id="${p.prediction_id}" data-emoji="${e}">${e}</button>`).join('')}
+              </div>
+            </div>
+          </div>
         </div>`
     ).join('')
     : `<p class="text-muted text-xs py-3 text-center">
@@ -316,6 +337,30 @@ async function renderDetail (matchId) {
 
   document.getElementById('btn-back').addEventListener('click', () => {
     navigateTo(state.detailReturnView || 'matches');
+  });
+
+  async function reactAndReload (predictionId, emoji) {
+    try {
+      await API.togglePredictionReaction(predictionId, emoji);
+    } catch (e) {
+      toast(e.message, 'error');
+      return;
+    }
+    renderDetail(matchId);
+  }
+
+  el.querySelectorAll('.pred-react-chip, .pred-react-emoji').forEach(btn => {
+    btn.addEventListener('click', () => reactAndReload(+btn.dataset.predictionId, btn.dataset.emoji));
+  });
+
+  el.querySelectorAll('.pred-react-add').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const palette = btn.parentElement.querySelector('.pred-react-palette');
+      const willOpen = palette?.classList.contains('hidden');
+      el.querySelectorAll('.pred-react-palette').forEach(p => p.classList.add('hidden'));
+      if (willOpen) palette.classList.remove('hidden');
+    });
   });
 
   const isLive = m.status === 'LIVE' || m.status === 'IN_PLAY' || m.status === 'PAUSED';

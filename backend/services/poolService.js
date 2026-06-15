@@ -132,6 +132,9 @@ async function migrateToPools () {
 
   const { migrateSpecialPicks } = require('./specialPicksService');
   await migrateSpecialPicks();
+
+  const { migratePredictionReactions } = require('./predictionReactionsService');
+  await migratePredictionReactions();
 }
 
 async function addUserToPool (userId, poolId) {

@@ -68,6 +68,8 @@ const API = (() => {
     // Matchs
     getMatches:     ()          => req('GET', '/matches', null, { poolScoped: true }),
     getMatch:       (id)        => req('GET', `/matches/${id}`, null, { poolScoped: true }),
+    togglePredictionReaction: (predictionId, emoji) =>
+      req('POST', `/matches/predictions/${predictionId}/reactions`, { emoji }, { poolScoped: true }),
 
     // Pronostics
     savePrediction: (match_id, predicted_home, predicted_away) =>
