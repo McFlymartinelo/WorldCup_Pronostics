@@ -1,5 +1,11 @@
 'use strict';
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   initAuthUI();
   initNotifDeepLink();
