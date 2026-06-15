@@ -149,6 +149,17 @@ function urlBase64ToUint8Array (base64String) {
   return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
 }
 
+function formatCountdown (msLeft) {
+  if (msLeft <= 0) return 'Coup d\'envoi imminent';
+  const totalMin = Math.floor(msLeft / 60000);
+  const days = Math.floor(totalMin / 1440);
+  const hours = Math.floor((totalMin % 1440) / 60);
+  const mins = totalMin % 60;
+  if (days >= 1) return `dans ${days} j ${hours} h`;
+  if (hours >= 1) return `dans ${hours} h ${String(mins).padStart(2, '0')} min`;
+  return `dans ${mins} min`;
+}
+
 function ptsCls (pts) {
   if (pts === 3) return 'pts-3';
   if (pts === 2) return 'pts-2';

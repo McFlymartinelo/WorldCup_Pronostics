@@ -34,6 +34,7 @@ async function renderMatches (silent = false) {
     for (const m of matches) html += matchCard(m);
   }
   el.innerHTML = html || `<p class="text-muted text-sm text-center py-12">Aucun match trouvé.</p>`;
+  startCountdownTicker();
 
   el.querySelectorAll('.pred-form').forEach(form => {
     const mid = +form.dataset.matchId;
@@ -140,7 +141,34 @@ function matchCard (m) {
         <span class="text-xs font-medium text-slate-300">${shortName(m.away_team)}</span>
       </div>
     </div>
+    ${countdownHtml(m)}
   </div>`;
+}
+
+function countdownHtml (m) {
+  if (m.is_locked || m.status === 'FINISHED' || m.status === 'LIVE') return '';
+  const msLeft = new Date(m.match_date).getTime() - Date.now();
+  const urgent = msLeft <= 3600000;
+  return `
+    <div class="match-countdown mt-2 pt-2 border-t border-border text-center text-[11px] ${urgent ? 'text-amber-400' : 'text-muted'}"
+         data-kickoff="${m.match_date}">
+      ⏳ Pronostic ouvert · ferme ${formatCountdown(msLeft)}
+    </div>`;
+}
+
+function refreshCountdowns () {
+  document.querySelectorAll('.match-countdown[data-kickoff]').forEach(elc => {
+    const msLeft = new Date(elc.dataset.kickoff).getTime() - Date.now();
+    const urgent = msLeft <= 3600000;
+    elc.classList.toggle('text-amber-400', urgent);
+    elc.classList.toggle('text-muted', !urgent);
+    elc.textContent = `⏳ Pronostic ouvert · ferme ${formatCountdown(msLeft)}`;
+  });
+}
+
+function startCountdownTicker () {
+  if (state.countdownTimer) return;
+  state.countdownTimer = setInterval(refreshCountdowns, 30000);
 }
 
 async function renderDetail (matchId) {

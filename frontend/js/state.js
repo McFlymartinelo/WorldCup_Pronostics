@@ -17,4 +17,6 @@ const state = {
   liveDetailMatchId: null,
   detailReturnView: 'matches',
   poolBadges: {},
+  countdownTimer: null,
+  pendingJoinCode: null,
 };
