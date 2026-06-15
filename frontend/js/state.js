@@ -13,6 +13,7 @@ const state = {
   chatPollTimer: null,
   statsCharts: [],
   standingsTab: 'table',
+  dailyDayIndex: 0,
   livePollTimer: null,
   liveDetailMatchId: null,
   detailReturnView: 'matches',

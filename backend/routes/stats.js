@@ -3,7 +3,7 @@ const express = require('express');
 const { all, get } = require('../database/db');
 const { requireAuth } = require('../middleware/auth');
 const { requirePool } = require('../middleware/requirePool');
-const { getPoolAdvancedStats } = require('../services/statsService');
+const { getPoolAdvancedStats, getDailyRankings } = require('../services/statsService');
 const { getPoolBadges } = require('../services/badgesService');
 const { comparePlayers } = require('../services/compareService');
 const { buildStandingsExport } = require('../services/exportService');
@@ -57,6 +57,16 @@ router.get('/advanced', requireAuth, requirePool, async (req, res) => {
     res.json(data);
   } catch (e) {
     console.error('[stats/advanced]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get('/daily', requireAuth, requirePool, async (req, res) => {
+  try {
+    const data = await getDailyRankings(req.poolId);
+    res.json(data);
+  } catch (e) {
+    console.error('[stats/daily]', e.message);
     res.status(500).json({ error: e.message });
   }
 });

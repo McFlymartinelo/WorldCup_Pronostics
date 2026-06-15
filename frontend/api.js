@@ -76,6 +76,7 @@ const API = (() => {
     // Classement
     getStandings:   ()          => req('GET', '/standings', null, { poolScoped: true }),
     getAdvancedStats: ()        => req('GET', '/stats/advanced', null, { poolScoped: true }),
+    getDailyRanking:  ()        => req('GET', '/stats/daily', null, { poolScoped: true }),
     getBadges:        ()         => req('GET', '/stats/badges', null, { poolScoped: true }),
     comparePlayer:    (id)       => req('GET', `/stats/compare/${id}`, null, { poolScoped: true }),
     exportStandings:  ()         => req('GET', '/stats/export', null, { poolScoped: true }),

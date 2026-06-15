@@ -162,4 +162,71 @@ async function getPoolAdvancedStats (poolId) {
   };
 }
 
-module.exports = { getPoolAdvancedStats };
+async function getDailyRankings (poolId) {
+  const members = await all(`
+    SELECT u.id, u.pseudo, u.avatar, u.color
+    FROM pool_members pm
+    JOIN users u ON u.id = pm.user_id
+    WHERE pm.pool_id = ? AND u.role = 'player'
+    ORDER BY u.pseudo COLLATE NOCASE ASC
+  `, [poolId]);
+  if (!members.length) return { days: [] };
+
+  const finishedMatches = await all(`
+    SELECT id, match_date
+    FROM matches
+    WHERE status = 'FINISHED'
+      AND home_score IS NOT NULL
+      AND away_score IS NOT NULL
+    ORDER BY match_date ASC, id ASC
+  `);
+  if (!finishedMatches.length) return { days: [] };
+
+  const preds = await all(`
+    SELECT user_id, match_id, points
+    FROM predictions
+    WHERE pool_id = ? AND points IS NOT NULL
+  `, [poolId]);
+
+  const pointsByMatchUser = {};
+  for (const p of preds) {
+    (pointsByMatchUser[p.match_id] ||= {})[p.user_id] = p.points;
+  }
+
+  const matchesByDay = {};
+  const dayOrder = [];
+  for (const m of finishedMatches) {
+    const day = String(m.match_date).slice(0, 10);
+    if (!matchesByDay[day]) { matchesByDay[day] = []; dayOrder.push(day); }
+    matchesByDay[day].push(m.id);
+  }
+
+  const days = dayOrder.map(day => {
+    const matchIds = matchesByDay[day];
+    const players = members.map(mem => {
+      let points = 0;
+      let exact = 0;
+      for (const mid of matchIds) {
+        const v = pointsByMatchUser[mid]?.[mem.id];
+        if (v != null) {
+          points += v;
+          if (v === 3) exact++;
+        }
+      }
+      return {
+        id: mem.id,
+        pseudo: mem.pseudo,
+        avatar: mem.avatar || '⚽',
+        color: mem.color || '#3b82f6',
+        points,
+        exact,
+      };
+    }).sort((a, b) => b.points - a.points || a.pseudo.localeCompare(b.pseudo, 'fr'));
+
+    return { date: day, match_count: matchIds.length, players };
+  }).reverse();
+
+  return { days };
+}
+
+module.exports = { getPoolAdvancedStats, getDailyRankings };

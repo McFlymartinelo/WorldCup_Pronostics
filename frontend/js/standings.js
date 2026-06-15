@@ -321,22 +321,77 @@ function statsPanelHtml (stats) {
     <div class="grid grid-cols-2 gap-2 mb-4">${playerCards || '<p class="text-muted text-xs col-span-2">Aucune donnée.</p>'}</div>`;
 }
 
+function dailyPanelHtml (daily) {
+  const days = daily?.days || [];
+  if (!days.length) {
+    return '<p class="text-muted text-sm text-center py-8">Aucun match terminé pour le moment.</p>';
+  }
+
+  let idx = state.dailyDayIndex ?? 0;
+  idx = Math.min(Math.max(0, idx), days.length - 1);
+  state.dailyDayIndex = idx;
+
+  const day = days[idx];
+  const dateLabel = new Date(`${day.date}T12:00:00`).toLocaleDateString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'long',
+  });
+  const best = day.players[0];
+  const someoneScored = day.players.some(p => p.points > 0);
+  const medals = ['🥇', '🥈', '🥉'];
+
+  const rows = day.players.map((p, i) => `
+    <div class="flex items-center gap-2 bg-surface border border-border ${i === 0 && p.points > 0 ? 'rank-1' : ''} rounded-xl px-3 py-2.5 mb-2">
+      <span class="text-base w-6 text-center flex-shrink-0">${medals[i] ?? `<span class="text-muted text-sm">${i + 1}</span>`}</span>
+      <span class="w-7 h-7 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
+            style="background:${p.color}22;border:1px solid ${p.color}">
+        ${avatarHtml(p.avatar || DEFAULT_AVATAR, { size: 'sm' })}
+      </span>
+      <span class="flex-1 text-sm truncate ${p.id === state.user?.id ? 'text-white font-semibold' : 'text-slate-300'}">
+        ${escHtml(p.pseudo)}
+      </span>
+      ${p.exact ? `<span class="text-[10px] text-green-400 flex-shrink-0">${p.exact}✓</span>` : ''}
+      <span class="text-blue-400 font-bold text-sm flex-shrink-0">${p.points} pt${p.points > 1 ? 's' : ''}</span>
+    </div>`).join('');
+
+  return `
+    <div class="flex items-center justify-between gap-2 mb-3">
+      <button type="button" class="daily-nav stats-tab" data-daily-nav="older" ${idx >= days.length - 1 ? 'disabled' : ''}>◀</button>
+      <div class="text-center min-w-0">
+        <p class="text-sm font-semibold text-white capitalize truncate">${escHtml(dateLabel)}</p>
+        <p class="text-[10px] text-muted">${day.match_count} match${day.match_count > 1 ? 's' : ''} · journée ${days.length - idx}/${days.length}</p>
+      </div>
+      <button type="button" class="daily-nav stats-tab" data-daily-nav="newer" ${idx <= 0 ? 'disabled' : ''}>▶</button>
+    </div>
+
+    ${someoneScored
+      ? `<div class="bg-surface border border-amber-700/40 rounded-xl px-3 py-3 mb-4 text-center">
+           <p class="text-xs text-muted mb-1">🏆 Joueur du jour</p>
+           <p class="text-sm font-semibold text-white">${escHtml(best.pseudo)} — <span class="text-amber-400">${best.points} pt${best.points > 1 ? 's' : ''}</span></p>
+         </div>`
+      : '<p class="text-xs text-muted text-center mb-4">Personne n\'a marqué de points ce jour-là.</p>'}
+
+    ${rows}`;
+}
+
 async function renderStandings () {
   const el = document.getElementById('view-standings');
   el.innerHTML = `<p class="text-muted text-sm text-center py-8">Chargement…</p>`;
 
   let stats;
   let badgesMap = {};
+  let daily = { days: [] };
   try {
-    const [standingsResult, statsResult, badgesResult] = await Promise.all([
+    const [standingsResult, statsResult, badgesResult, dailyResult] = await Promise.all([
       API.getStandings(),
       API.getAdvancedStats(),
       API.getBadges().catch(() => ({})),
+      API.getDailyRanking().catch(() => ({ days: [] })),
     ]);
     state.standings = Array.isArray(standingsResult) ? standingsResult : [];
     stats = statsResult;
     badgesMap = badgesResult || {};
     state.poolBadges = badgesMap;
+    daily = dailyResult || { days: [] };
   } catch (e) {
     el.innerHTML = `<p class="text-red-400 text-sm">${escHtml(e.message)}</p>`;
     return;
@@ -351,6 +406,7 @@ async function renderStandings () {
 
     <div class="flex gap-2 mb-4 overflow-x-auto pb-1">
       <button type="button" class="stats-tab ${tab === 'table' ? 'active' : ''}" data-standings-tab="table">📋 Tableau</button>
+      <button type="button" class="stats-tab ${tab === 'daily' ? 'active' : ''}" data-standings-tab="daily">📅 Journée</button>
       <button type="button" class="stats-tab ${tab === 'stats' ? 'active' : ''}" data-standings-tab="stats">📊 Statistiques</button>
     </div>
 
@@ -370,6 +426,10 @@ async function renderStandings () {
       </div>
     </div>
 
+    <div id="standings-panel-daily" class="${tab === 'daily' ? '' : 'hidden'}">
+      ${dailyPanelHtml(daily)}
+    </div>
+
     <div id="standings-panel-stats" class="${tab === 'stats' ? '' : 'hidden'}">
       ${statsPanelHtml(stats)}
     </div>`;
@@ -377,6 +437,14 @@ async function renderStandings () {
   el.querySelectorAll('[data-standings-tab]').forEach(btn => {
     btn.addEventListener('click', () => {
       state.standingsTab = btn.dataset.standingsTab;
+      renderStandings();
+    });
+  });
+
+  el.querySelectorAll('[data-daily-nav]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return;
+      state.dailyDayIndex += btn.dataset.dailyNav === 'older' ? 1 : -1;
       renderStandings();
     });
   });
