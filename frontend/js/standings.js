@@ -243,8 +243,8 @@ function renderStatsCharts (stats) {
           {
             label: 'Moy. pts/match',
             data: stats.players.map(p => p.avg_points),
-            backgroundColor: '#14b8a699',
-            borderColor: '#14b8a6',
+            backgroundColor: stats.players.map(p => `${p.color}99`),
+            borderColor: stats.players.map(p => p.color),
             borderWidth: 1,
           },
         ],
