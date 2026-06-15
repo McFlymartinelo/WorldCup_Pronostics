@@ -243,8 +243,8 @@ function renderStatsCharts (stats) {
           {
             label: 'Points matchs',
             data: stats.players.map(p => p.match_points),
-            backgroundColor: stats.players.map(p => `${p.color}99`),
-            borderColor: stats.players.map(p => p.color),
+            backgroundColor: '#14b8a699',
+            borderColor: '#14b8a6',
             borderWidth: 1,
           },
           {
