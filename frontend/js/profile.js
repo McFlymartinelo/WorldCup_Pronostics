@@ -113,6 +113,42 @@ function readOpenPseudoEdit () {
   return trimmed;
 }
 
+function myReviewHtml (me, stats) {
+  if (!me) return '';
+  const totalPlayers = stats?.players?.length || 0;
+  const finished = stats?.finished_matches || 0;
+  return `
+    <div class="bg-surface border border-border rounded-xl p-4 mb-4">
+      <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Mon bilan</p>
+      <div class="grid grid-cols-3 gap-2 mb-3 text-center">
+        <div class="bg-bg rounded-lg p-2">
+          <p class="text-lg font-bold text-white">#${me.current_rank}${totalPlayers ? `<span class="text-xs text-muted">/${totalPlayers}</span>` : ''}</p>
+          <p class="text-[10px] text-muted">Classement</p>
+        </div>
+        <div class="bg-bg rounded-lg p-2">
+          <p class="text-lg font-bold text-blue-400">${me.total_points}</p>
+          <p class="text-[10px] text-muted">Points</p>
+        </div>
+        <div class="bg-bg rounded-lg p-2">
+          <p class="text-lg font-bold text-teal-400">${me.avg_points}</p>
+          <p class="text-[10px] text-muted">Moy./match</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-4 gap-1 text-center mb-3">
+        <div><p class="text-green-400 font-bold text-sm">${me.exact_scores}</p><p class="text-[10px] text-muted">Exact</p></div>
+        <div><p class="text-lime-400 font-bold text-sm">${me.good_diff ?? 0}</p><p class="text-[10px] text-muted">Écart</p></div>
+        <div><p class="text-purple-400 font-bold text-sm">${me.good_results}</p><p class="text-[10px] text-muted">1N2</p></div>
+        <div><p class="text-slate-500 font-bold text-sm">${me.wrong}</p><p class="text-[10px] text-muted">Raté</p></div>
+      </div>
+      <div class="w-full bg-bg rounded-full h-2 mb-1 overflow-hidden">
+        <div class="h-2 bg-green-500 rounded-full" style="width:${me.accuracy_pct}%"></div>
+      </div>
+      <p class="text-[10px] text-muted text-center">
+        Précision ${me.accuracy_pct}% · ${me.predictions_scored} prono${me.predictions_scored > 1 ? 's' : ''} noté${me.predictions_scored > 1 ? 's' : ''} sur ${finished} match${finished > 1 ? 's' : ''} terminé${finished > 1 ? 's' : ''}
+      </p>
+    </div>`;
+}
+
 async function renderProfile () {
   const el = document.getElementById('view-profile');
   if (!el) return;
@@ -120,13 +156,19 @@ async function renderProfile () {
   el.innerHTML = `<p class="text-muted text-sm text-center py-8">Chargement…</p>`;
 
   let profile;
+  let advStats = null;
   try {
-    profile = await API.getProfile();
+    [profile, advStats] = await Promise.all([
+      API.getProfile(),
+      API.getAdvancedStats().catch(() => null),
+    ]);
   } catch (e) {
     el.innerHTML = `<p class="text-red-400 text-sm text-center py-8">${escHtml(e.message)}</p>`;
     return;
   }
   if (!profile) return;
+
+  const myReview = advStats?.players?.find(p => p.id === profile.id) || null;
 
   state.user.pseudo = profile.pseudo;
   state.user.id = profile.id;
@@ -171,6 +213,8 @@ async function renderProfile () {
         : ''}
       </div>
     </div>
+
+    ${myReviewHtml(myReview, advStats)}
 
     <div class="bg-surface border border-border rounded-xl p-4 mb-4">
       <p class="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Badges</p>
