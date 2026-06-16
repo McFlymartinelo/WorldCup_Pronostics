@@ -16,22 +16,35 @@ async function renderMatches (silent = false) {
     m.status === 'LIVE' || m.status === 'IN_PLAY' || m.status === 'PAUSED',
   );
 
-  const groups = {};
+  const days = {};
+  const dayOrder = [];
   for (const m of state.matches) {
-    const key = m.group_name
-      ? `Groupe ${String(m.group_name).replace(/^GROUP_/i, '')}`
-      : (m.stage || 'Phase finale');
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(m);
+    const key = matchDayKey(m.match_date);
+    if (!days[key]) {
+      days[key] = [];
+      dayOrder.push(key);
+    }
+    days[key].push(m);
+  }
+  dayOrder.sort();
+  for (const key of dayOrder) {
+    days[key].sort((a, b) => new Date(a.match_date) - new Date(b.match_date));
   }
 
   let html = '';
   if (hasLive) {
     html += `<p class="text-xs text-amber-400 mb-3 flex items-center gap-2"><span class="badge-live inline-block w-2 h-2 rounded-full"></span> Mode live — actualisation auto</p>`;
   }
-  for (const [label, matches] of Object.entries(groups)) {
-    html += `<p class="text-xs font-semibold text-muted uppercase tracking-wider mb-3 mt-5 first:mt-0">${label}</p>`;
-    for (const m of matches) html += matchCard(m);
+  for (const dayKey of dayOrder) {
+    const dayMatches = days[dayKey];
+    html += `
+      <div class="match-day-section">
+        <p class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3 mt-5 first:mt-0 flex items-center justify-between gap-2">
+          <span class="capitalize">${escHtml(formatMatchDayLabel(dayKey))}</span>
+          <span class="text-muted font-normal normal-case shrink-0">${dayMatches.length} match${dayMatches.length > 1 ? 's' : ''}</span>
+        </p>`;
+    for (const m of dayMatches) html += matchCard(m);
+    html += `</div>`;
   }
   el.innerHTML = html || `<p class="text-muted text-sm text-center py-12">Aucun match trouvé.</p>`;
   startCountdownTicker();
@@ -72,6 +85,33 @@ async function renderMatches (silent = false) {
   }
 }
 
+function matchDayKey (matchDate) {
+  const d = new Date(matchDate);
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${mo}-${day}`;
+}
+
+function formatMatchDayLabel (dayKey) {
+  const [y, mo, d] = dayKey.split('-').map(Number);
+  const target = new Date(y, mo - 1, d);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((target - today) / 86400000);
+  if (diffDays === 0) return 'Aujourd\'hui';
+  if (diffDays === 1) return 'Demain';
+  if (diffDays === -1) return 'Hier';
+  return target.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+function matchGroupLabel (m) {
+  if (m.group_name) return `Groupe ${String(m.group_name).replace(/^GROUP_/i, '')}`;
+  if (m.stage) return m.stage;
+  return '';
+}
+
 function matchCard (m) {
   const isLocked = m.is_locked;
 
@@ -82,9 +122,13 @@ function matchCard (m) {
     return `<span class="badge badge-open text-xs px-2 py-0.5 rounded-full">● Ouvert</span>`;
   })();
 
-  const dateStr = new Date(m.match_date).toLocaleString('fr-FR', {
-    weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+  const timeStr = new Date(m.match_date).toLocaleTimeString('fr-FR', {
+    hour: '2-digit', minute: '2-digit',
   });
+  const groupLabel = matchGroupLabel(m);
+  const groupBadge = groupLabel
+    ? `<span class="text-[10px] text-slate-400 bg-border px-1.5 py-0.5 rounded">${escHtml(groupLabel)}</span>`
+    : '';
 
   const realScore = (m.status === 'LIVE' || m.status === 'FINISHED') && m.home_score !== null
     ? `<div class="text-lg font-bold text-center ${m.status === 'LIVE' ? 'text-amber-400' : 'text-slate-200'}">
@@ -120,8 +164,11 @@ function matchCard (m) {
   return `
     <div class="bg-surface border border-border rounded-xl p-3 mb-3 transition"
      data-match-id="${m.id}">
-    <div class="flex justify-between items-center mb-2">
-      <span class="text-xs text-muted">${dateStr}</span>
+    <div class="flex justify-between items-center mb-2 gap-2">
+      <span class="text-xs text-muted flex items-center gap-2 min-w-0">
+        <span class="font-medium text-slate-300">${timeStr}</span>
+        ${groupBadge}
+      </span>
       <div class="flex items-center gap-2">
         ${statusBadge}
         <button class="match-card-link text-xs text-muted hover:text-white border border-border hover:border-slate-500 px-2 py-0.5 rounded-lg transition"
