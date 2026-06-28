@@ -6,6 +6,9 @@ body { font-family: system-ui, -apple-system, sans-serif; }
 /* ── Vues ────────────────────────────────────────────────────── */
 .view.hidden { display: none !important; }
 
+/* Marge haute pour que le header sticky ne cache pas la section */
+.match-day-section { scroll-margin-top: 60px; }
+
 /* ── Inputs ──────────────────────────────────────────────────── */
 .input-field {
   width: 100%;
