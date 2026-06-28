@@ -38,7 +38,7 @@ async function renderMatches (silent = false) {
   for (const dayKey of dayOrder) {
     const dayMatches = days[dayKey];
     html += `
-      <div class="match-day-section">
+      <div class="match-day-section" data-day="${dayKey}">
         <p class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3 mt-5 first:mt-0 flex items-center justify-between gap-2">
           <span class="capitalize">${escHtml(formatMatchDayLabel(dayKey))}</span>
           <span class="text-muted font-normal normal-case shrink-0">${dayMatches.length} match${dayMatches.length > 1 ? 's' : ''}</span>
@@ -48,6 +48,8 @@ async function renderMatches (silent = false) {
   }
   el.innerHTML = html || `<p class="text-muted text-sm text-center py-12">Aucun match trouvé.</p>`;
   startCountdownTicker();
+
+  if (!silent) scrollToToday(el, dayOrder);
 
   el.querySelectorAll('.pred-form').forEach(form => {
     const mid = +form.dataset.matchId;
@@ -83,6 +85,30 @@ async function renderMatches (silent = false) {
   } else if (state.currentView === 'matches') {
     stopLivePoll();
   }
+}
+
+function scrollToToday (el, dayOrder) {
+  const todayKey = matchDayKey(new Date().toISOString());
+
+  // Section exacte du jour ou, à défaut, le prochain jour avec des matchs
+  const targetKey = dayOrder.includes(todayKey)
+    ? todayKey
+    : dayOrder.find(k => k > todayKey) || null;
+
+  if (!targetKey) return;
+
+  const section = el.querySelector(`.match-day-section[data-day="${targetKey}"]`);
+  if (!section) return;
+
+  // Le conteneur scrollable est le <main>, pas la window ni el lui-même
+  const main = document.querySelector('main');
+  if (!main) return;
+
+  requestAnimationFrame(() => {
+    const mainTop = main.getBoundingClientRect().top;
+    const sectionTop = section.getBoundingClientRect().top;
+    main.scrollBy({ top: sectionTop - mainTop - 12, behavior: 'smooth' });
+  });
 }
 
 function matchDayKey (matchDate) {
