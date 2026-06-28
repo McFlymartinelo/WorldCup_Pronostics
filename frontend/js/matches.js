@@ -99,25 +99,18 @@ function scrollToToday (el, dayOrder) {
   const section = el.querySelector(`.match-day-section[data-day="${targetKey}"]`);
   if (!section) return;
 
-  const main = document.querySelector('main');
-  if (!main) return;
+  // Délai court pour laisser le navigateur finir le layout après l'injection HTML
+  setTimeout(() => {
+    const main = document.querySelector('main');
+    if (!main) return;
 
-  // Calcul de l'offset de la section par rapport au conteneur scrollable <main>
-  function offsetRelativeTo (node, ancestor) {
-    let top = 0;
-    let cur = node;
-    while (cur && cur !== ancestor) {
-      top += cur.offsetTop;
-      cur = cur.offsetParent;
-    }
-    return top;
-  }
+    // Position de la section dans le contenu scrollable de main
+    const mainRect = main.getBoundingClientRect();
+    const sectionRect = section.getBoundingClientRect();
+    const scrollTarget = main.scrollTop + (sectionRect.top - mainRect.top) - 12;
 
-  // Double rAF : garantit que le layout est finalisé avant de scroller
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    const top = offsetRelativeTo(section, main);
-    main.scrollTo({ top: Math.max(0, top - 12), behavior: 'smooth' });
-  }));
+    main.scrollTo({ top: Math.max(0, scrollTarget), behavior: 'smooth' });
+  }, 80);
 }
 
 function matchDayKey (matchDate) {
