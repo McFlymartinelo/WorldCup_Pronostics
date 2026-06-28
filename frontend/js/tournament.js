@@ -1,15 +1,17 @@
 'use strict';
 
 const KNOCKOUT_LABELS = {
-  ROUND_OF_32: { label: '32èmes', emoji: '⚽' },
-  ROUND_OF_16: { label: '8èmes', emoji: '🔥' },
+  LAST_32:       { label: '16èmes de finale', emoji: '⚽' },
+  ROUND_OF_32:   { label: '16èmes de finale', emoji: '⚽' },
+  LAST_16:       { label: 'Huitièmes', emoji: '🔥' },
+  ROUND_OF_16:   { label: 'Huitièmes', emoji: '🔥' },
   QUARTER_FINALS: { label: 'Quarts', emoji: '💥' },
-  SEMI_FINALS: { label: 'Demis', emoji: '⚡' },
-  THIRD_PLACE: { label: '3e place', emoji: '🥉' },
-  FINAL: { label: 'Finale', emoji: '🏆' },
+  SEMI_FINALS:   { label: 'Demis', emoji: '⚡' },
+  THIRD_PLACE:   { label: '3e place', emoji: '🥉' },
+  FINAL:         { label: 'Finale', emoji: '🏆' },
 };
 
-const KNOCKOUT_ROUND_ORDER = ['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINALS', 'SEMI_FINALS'];
+const KNOCKOUT_ROUND_ORDER = ['LAST_32', 'ROUND_OF_32', 'LAST_16', 'ROUND_OF_16', 'QUARTER_FINALS', 'SEMI_FINALS'];
 
 function bracketMatchSlotHtml (m) {
   const dateStr = new Date(m.match_date).toLocaleString('fr-FR', {

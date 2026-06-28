@@ -108,7 +108,7 @@ function formatMatchDayLabel (dayKey) {
 
 function matchGroupLabel (m) {
   if (m.group_name) return `Groupe ${String(m.group_name).replace(/^GROUP_/i, '')}`;
-  if (m.stage) return m.stage;
+  if (m.stage) return stageName(m.stage) || m.stage;
   return '';
 }
 

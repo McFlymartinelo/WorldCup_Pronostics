@@ -174,6 +174,9 @@ const TEAM_ALIASES = {
 
 const STAGES = {
   'GROUP_STAGE':          'Phase de groupes',
+  'LAST_32':              '16èmes de finale',
+  'ROUND_OF_32':          '16èmes de finale',
+  'LAST_16':              'Huitièmes de finale',
   'ROUND_OF_16':          'Huitièmes de finale',
   'QUARTER_FINALS':       'Quarts de finale',
   'SEMI_FINALS':          'Demi-finales',
