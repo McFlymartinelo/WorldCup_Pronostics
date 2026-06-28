@@ -90,7 +90,6 @@ async function renderMatches (silent = false) {
 function scrollToToday (el, dayOrder) {
   const todayKey = matchDayKey(new Date().toISOString());
 
-  // Section exacte du jour ou, à défaut, le prochain jour avec des matchs
   const targetKey = dayOrder.includes(todayKey)
     ? todayKey
     : dayOrder.find(k => k > todayKey) || null;
@@ -100,15 +99,25 @@ function scrollToToday (el, dayOrder) {
   const section = el.querySelector(`.match-day-section[data-day="${targetKey}"]`);
   if (!section) return;
 
-  // Le conteneur scrollable est le <main>, pas la window ni el lui-même
   const main = document.querySelector('main');
   if (!main) return;
 
-  requestAnimationFrame(() => {
-    const mainTop = main.getBoundingClientRect().top;
-    const sectionTop = section.getBoundingClientRect().top;
-    main.scrollBy({ top: sectionTop - mainTop - 12, behavior: 'smooth' });
-  });
+  // Calcul de l'offset de la section par rapport au conteneur scrollable <main>
+  function offsetRelativeTo (node, ancestor) {
+    let top = 0;
+    let cur = node;
+    while (cur && cur !== ancestor) {
+      top += cur.offsetTop;
+      cur = cur.offsetParent;
+    }
+    return top;
+  }
+
+  // Double rAF : garantit que le layout est finalisé avant de scroller
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const top = offsetRelativeTo(section, main);
+    main.scrollTo({ top: Math.max(0, top - 12), behavior: 'smooth' });
+  }));
 }
 
 function matchDayKey (matchDate) {
